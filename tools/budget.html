@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Film Budget Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+.top4{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:900px){.top4{grid-template-columns:1fr 1fr}}
+.top4 .card{margin:0}.top4 span{font:9.5px var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.bar{height:8px;border-radius:4px;background:var(--border2);overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;background:var(--accent)}
+.alloc{display:flex;flex-direction:column;gap:6px;margin-top:6px}.alloc div{display:grid;grid-template-columns:150px 1fr 90px;gap:8px;align-items:center;font-size:12px}
+</style></head><body>
+<div class="wrap">
+  <div class="top4">
+    <div class="card"><span>Estimated</span><div class="big" id="t-est">—</div></div>
+    <div class="card"><span>Contingency</span><div style="display:flex;gap:8px;align-items:center"><input type="number" id="cont" min="0" max="50" step="1" style="width:70px"><span>%</span></div><div class="hint" id="t-cont"></div></div>
+    <div class="card"><span>Total budget</span><div class="big" id="t-tot">—</div></div>
+    <div class="card"><span>Spent so far</span><div class="big" id="t-act">—</div><div class="bar"><i id="t-bar"></i></div></div>
+    <div class="card"><span>Target / cap</span><div style="display:flex;gap:6px;align-items:center"><select id="cur" style="width:56px"><option>£</option><option>€</option><option>$</option><option>₴</option><option>zł</option></select><input type="number" id="cap" placeholder="e.g. 1500" step="any"></div><div class="hint" id="t-cap"></div></div>
+  </div>
+  <div class="card no-print" style="margin-bottom:14px"><div class="label">Where the money goes</div><div class="alloc" id="alloc"></div></div>
+  <div class="tbl-bar no-print"><input type="text" id="q" placeholder="Filter lines"><button class="btn" id="b-dept">+ Department</button><button class="btn ghost" id="b-tpl">Load student short template</button></div>
+  <div id="tbl"></div>
+  <p class="hint" style="margin-top:14px">Estimated = quantity × rate. Fill in Actual as receipts come in; Variance shows over (red) or under budget. Contingency (usually 10%) covers surprises.</p>
+</div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'02 · Prep', name:'Film Budget Builder', actions:'<button class="btn" id="b-csv">CSV</button><button class="btn accent" id="b-print">Print / PDF</button>'});
+const D=(name,rows)=>({id:FH.uid(), name, rows:rows.map(r=>Object.assign({id:FH.uid(), qty:1, unit:'flat', rate:0, actual:''},r))});
+const TEMPLATE=()=>({contingency:10, cap:'', groups:[
+  D('Story & rights',[{item:'Script / rights'}]),
+  D('Cast',[{item:'Lead actor',qty:3,unit:'days',rate:0},{item:'Supporting actor',qty:2,unit:'days'},{item:'Travel expenses for cast',unit:'flat'}]),
+  D('Crew',[{item:'Crew travel / expenses',unit:'flat'}]),
+  D('Camera, lighting & grip',[{item:'Kit hire not covered by college (Cheqroom)',unit:'days'},{item:'Hard drives / media',qty:2,unit:'each',rate:60},{item:'Batteries / gels / gaffer tape',unit:'flat',rate:40}]),
+  D('Sound',[{item:'Lav mics / batteries',unit:'flat'}]),
+  D('Art department',[{item:'Props',unit:'flat'},{item:'Set dressing',unit:'flat'}]),
+  D('Costume, hair & make-up',[{item:'Costume',unit:'flat'},{item:'Make-up kit',unit:'flat'}]),
+  D('Locations',[{item:'Location fee',qty:1,unit:'days'},{item:'Permits',unit:'flat'}]),
+  D('Transport',[{item:'Fuel / taxis',unit:'flat'},{item:'Van hire',unit:'days'}]),
+  D('Catering',[{item:'Lunch',qty:3,unit:'days',rate:60},{item:'Snacks & water',qty:3,unit:'days',rate:15}]),
+  D('Post-production',[{item:'Music licence',unit:'flat'},{item:'Colour / sound mix',unit:'flat'}]),
+  D('Distribution & festivals',[{item:'Festival entry fees',qty:5,unit:'each',rate:25}]),
+  D('Insurance & admin',[{item:'Production insurance',unit:'flat'}]),
+]});
+let data=FH.load('budget', TEMPLATE);
+if(FH.LS.get('fh:currency')) document.getElementById('cur').value=FH.LS.get('fh:currency');
+const est=r=>(+r.qty||0)*(+r.rate||0);
+const cols=[
+  {key:'item', label:'Line item', placeholder:'What it is'},
+  {key:'qty', label:'Qty', type:'num', width:'64px'},
+  {key:'unit', label:'Unit', type:'select', options:['flat','days','weeks','hours','each','km'], width:'86px'},
+  {key:'rate', label:'Rate', type:'money', width:'100px'},
+  {key:'est', label:'Estimated', type:'calc', calc:est, money:true, sum:true, width:'110px'},
+  {key:'actual', label:'Actual', type:'money', sum:true, width:'100px'},
+  {key:'var', label:'Variance', type:'calc', calc:r=>r.actual===''||r.actual==null?0:est(r)-(+r.actual||0), money:true, width:'100px'},
+  {key:'who', label:'Paid by / receipt', width:'130px'},
+  {key:'notes', label:'Notes', type:'long'},
+];
+const table=new FH.Table(document.getElementById('tbl'), data, {columns:cols, grouped:true, groupWord:'Department', rowWord:'Line', sumLabel:'Total (before contingency)',
+  newRow:()=>({qty:1, unit:'flat', rate:'', actual:''}), newGroup:n=>({name:'New department'}),
+  rowStyle:r=>(r.actual!==''&&r.actual!=null&&(+r.actual)>est(r))?'background:rgba(208,71,60,.08)':'',
+  onChange:()=>{ FH.save('budget', data); totals(); }, afterRender:()=>totals()});
+function totals(){
+  const all=data.groups.flatMap(g=>g.rows), e=all.reduce((s,r)=>s+est(r),0), a=all.reduce((s,r)=>s+(+r.actual||0),0), c=e*(+data.contingency||0)/100, tot=e+c;
+  document.getElementById('t-est').textContent=FH.money(e); document.getElementById('t-cont').textContent='= '+FH.money(c); document.getElementById('t-tot').textContent=FH.money(tot);
+  document.getElementById('t-act').textContent=FH.money(a); document.getElementById('t-bar').style.width=Math.min(100,tot?a/tot*100:0)+'%'; document.getElementById('t-bar').style.background=a>tot?'var(--danger)':'var(--accent)';
+  const cap=+data.cap||0; document.getElementById('t-cap').innerHTML=cap?(tot<=cap?`<span style="color:#5fd38a">${FH.money(cap-tot)} under</span>`:`<span style="color:#ff9d93">${FH.money(tot-cap)} over</span>`):'Set your maximum';
+  document.getElementById('alloc').innerHTML=data.groups.map(g=>{ const v=g.rows.reduce((s,r)=>s+est(r),0); return `<div><span>${FH.esc(g.name)}</span><div class="bar" style="margin:0"><i style="width:${e?v/e*100:0}%"></i></div><span style="font:11px var(--mono);text-align:right">${FH.money(v)} · ${e?Math.round(v/e*100):0}%</span></div>`; }).join('');
+  // colour variance cells
+  document.querySelectorAll('[data-calc="var"]').forEach(td=>{ const n=parseFloat(td.textContent.replace(/[^\d.-]/g,'')); td.style.color=n<0?'#ff9d93':n>0?'#5fd38a':'var(--muted)'; });
+}
+const cont=document.getElementById('cont'); cont.value=data.contingency??10; cont.oninput=()=>{ data.contingency=+cont.value; FH.save('budget',data); totals(); };
+const capI=document.getElementById('cap'); capI.value=data.cap||''; capI.oninput=()=>{ data.cap=capI.value; FH.save('budget',data); totals(); };
+document.getElementById('cur').onchange=e=>{ FH.LS.set('fh:currency', e.target.value); table.render(); };
+document.getElementById('q').oninput=e=>{ table.filter=e.target.value; table.render(); };
+document.getElementById('b-dept').onclick=()=>document.getElementById('tbl-addg').click();
+document.getElementById('b-tpl').onclick=()=>FH.confirm('Load the template?','Replaces this budget with a student short film template. You can edit everything.','Load template',()=>{ data=TEMPLATE(); table.data=data; FH.save('budget',data); table.render(); });
+document.getElementById('b-csv').onclick=()=>{ const rows=[['Department','Item','Qty','Unit','Rate','Estimated','Actual','Variance','Paid by','Notes']]; data.groups.forEach(g=>g.rows.forEach(r=>rows.push([g.name,r.item,r.qty,r.unit,r.rate,est(r),r.actual,r.actual===''?'':est(r)-(+r.actual||0),r.who,r.notes]))); FH.download((FH.currentProject().name+'-budget.csv').replace(/\s+/g,'-'),FH.csv(rows),'text/csv'); };
+document.getElementById('b-print').onclick=()=>{ const all=data.groups.flatMap(g=>g.rows), e=all.reduce((s,r)=>s+est(r),0), c=e*(+data.contingency||0)/100;
+  let h=`<h1>${FH.esc(FH.currentProject().name)} — Budget</h1><h2>Top sheet</h2><table><tr><th>Department</th><th style="text-align:right">Estimated</th><th style="text-align:right">Actual</th></tr>${data.groups.map(g=>`<tr><td>${FH.esc(g.name)}</td><td style="text-align:right">${FH.money(g.rows.reduce((s,r)=>s+est(r),0))}</td><td style="text-align:right">${FH.money(g.rows.reduce((s,r)=>s+(+r.actual||0),0))}</td></tr>`).join('')}<tr><td>Contingency ${data.contingency}%</td><td style="text-align:right">${FH.money(c)}</td><td></td></tr><tr><th>Total</th><th style="text-align:right">${FH.money(e+c)}</th><th style="text-align:right">${FH.money(all.reduce((s,r)=>s+(+r.actual||0),0))}</th></tr></table>`;
+  data.groups.forEach(g=>{ if(!g.rows.length) return; h+=`<h2>${FH.esc(g.name)}</h2><table><tr><th>Item</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Estimated</th><th>Actual</th><th>Notes</th></tr>${g.rows.map(r=>`<tr><td>${FH.esc(r.item)}</td><td>${FH.esc(r.qty)}</td><td>${FH.esc(r.unit)}</td><td>${FH.money(r.rate)}</td><td>${FH.money(est(r))}</td><td>${r.actual===''?'':FH.money(r.actual)}</td><td>${FH.esc(r.notes)}</td></tr>`).join('')}</table>`; });
+  FH.previewSheet(h, FH.currentProject().name+' budget'); };
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

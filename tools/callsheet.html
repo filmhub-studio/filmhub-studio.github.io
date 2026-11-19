@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Call Sheet Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+.cs-layout{display:grid;grid-template-columns:minmax(380px,1fr) minmax(420px,1.1fr);gap:18px;align-items:start}
+@media(max-width:1000px){.cs-layout{grid-template-columns:1fr}}
+.preview{position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;border-radius:8px}
+.sheet .bigcall{font-size:30px;font-weight:700}.sheet .grid2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:10px 0}.sheet .box{border:1px solid #bbb;border-radius:4px;padding:8px;font-size:11.5px}.sheet .box b{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:3px}
+.sub-tbl table.grid{min-width:0}
+details{border-top:1px solid var(--border);padding-top:10px;margin-top:10px}summary{cursor:pointer;font:500 10px var(--mono);letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+</style></head><body>
+<div class="wrap"><div class="cs-layout">
+  <div>
+    <div class="card"><div class="label">Import</div><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="imp-day" style="max-width:220px"></select><button class="btn" id="b-imp">Fill scenes &amp; cast from schedule</button><button class="btn" id="b-shots">Add shot list for that day</button></div><p class="hint" style="margin-top:8px">Pulls scenes and cast from your Production Schedule and the shots from your Shot List for the chosen day. You can edit everything after.</p></div>
+    <div class="card"><div class="label">Production</div>
+      <div class="row2"><div class="field"><label>Title</label><input type="text" data-f="title"></div><div class="field"><label>Production company</label><input type="text" data-f="company" placeholder="Belfast Met · Film Production"></div></div>
+      <div class="row3"><div class="field"><label>Shoot day</label><input type="text" data-f="dayof" placeholder="1 of 3"></div><div class="field"><label>Date</label><input type="date" data-f="date"></div><div class="field"><label>Unit call</label><input type="time" data-f="call" value="08:00"></div></div>
+      <div class="row3"><div class="field"><label>Shooting call</label><input type="time" data-f="shoot"></div><div class="field"><label>Lunch</label><input type="time" data-f="lunch"></div><div class="field"><label>Est. wrap</label><input type="time" data-f="wrap"></div></div>
+      <div class="row3"><div class="field"><label>Director</label><input type="text" data-f="director"></div><div class="field"><label>Producer</label><input type="text" data-f="producer"></div><div class="field"><label>1st AD</label><input type="text" data-f="ad"></div></div>
+      <div class="field"><label>Key contact numbers</label><input type="text" data-f="contacts" placeholder="Producer 07…, 1st AD 07…"></div>
+      <details open><summary>Location &amp; safety</summary>
+        <div class="field"><label>Location / address</label><textarea data-f="loc" style="min-height:50px"></textarea></div>
+        <div class="row2"><div class="field"><label>Parking / unit base</label><input type="text" data-f="parking"></div><div class="field"><label>Nearest A&amp;E</label><input type="text" data-f="hospital"></div></div>
+        <div class="field"><label>Safety notes</label><textarea data-f="safety" style="min-height:50px" placeholder="See risk assessment. Cables taped, first aider: …"></textarea></div>
+      </details>
+      <details open><summary>Weather</summary>
+        <div class="row3"><div class="field"><label>Forecast</label><input type="text" data-f="wx" placeholder="Light rain, breezy"></div><div class="field"><label>High / low</label><input type="text" data-f="temp" placeholder="9° / 4°"></div><div class="field"><label>Sunrise / sunset</label><input type="text" data-f="sun" placeholder="08:05 / 16:01"></div></div>
+      </details>
+    </div>
+    <div class="card sub-tbl"><div class="label">Scenes</div><div id="t-scenes"></div></div>
+    <div class="card sub-tbl"><div class="label">Cast</div><div id="t-cast"></div></div>
+    <div class="card sub-tbl"><div class="label">Crew</div><div id="t-crew"></div><button class="btn sm ghost" id="b-crew" style="margin-top:8px">Add standard crew roles</button></div>
+    <div class="card"><div class="label">Catering, notes &amp; next day</div>
+      <div class="field"><label>Catering</label><input type="text" data-f="catering" placeholder="Breakfast 07:30, lunch 13:00 · veggie/vegan options · allergies: …"></div>
+      <div class="field"><label>Notes / special requirements</label><textarea data-f="notes"></textarea></div>
+      <div class="field"><label>Advance schedule (next day)</label><textarea data-f="advance" style="min-height:50px"></textarea></div>
+    </div>
+  </div>
+  <div class="preview"><div class="sheet" id="sheet"></div></div>
+</div></div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'02 · Prep · Finalise', name:'Call Sheet Builder', actions:'<select id="sheets" style="width:auto"></select><button class="btn" id="b-new">New call sheet</button><button class="btn accent" id="b-print">Print / PDF</button>'});
+const blank=()=>({id:FH.uid(), f:{call:'08:00'}, scenes:{groups:[{id:FH.uid(),name:'',rows:[]}]}, cast:{groups:[{id:FH.uid(),name:'',rows:[]}]}, crew:{groups:[{id:FH.uid(),name:'',rows:[]}]}});
+let store=FH.load('callsheet', ()=>({cur:0, sheets:[blank()]}));
+let S=store.sheets[store.cur]||store.sheets[0];
+const e=FH.esc; let tS,tC,tW;
+function mount(){
+  document.querySelectorAll('[data-f]').forEach(i=>{ i.value=S.f[i.dataset.f]??''; if(i.dataset.f==='call'&&!i.value) i.value='08:00'; i.oninput=()=>{ S.f[i.dataset.f]=i.value; save(); }; });
+  tS=new FH.Table(document.getElementById('t-scenes'), S.scenes, {columns:[{key:'sc',label:'Sc',width:'50px'},{key:'set',label:'Set'},{key:'dn',label:'D/N',type:'select',options:['DAY','NIGHT','DAWN','DUSK'],width:'80px'},{key:'pages',label:'Pgs',width:'56px'},{key:'cast',label:'Cast',width:'70px'},{key:'notes',label:'Notes'}], rowWord:'Scene', onChange:save});
+  tC=new FH.Table(document.getElementById('t-cast'), S.cast, {columns:[{key:'num',label:'#',width:'40px'},{key:'actor',label:'Actor'},{key:'character',label:'Character'},{key:'pickup',label:'Pick-up',type:'time',width:'92px'},{key:'call',label:'Call',type:'time',width:'92px'},{key:'hmu',label:'H/MU',type:'time',width:'92px'},{key:'onset',label:'On set',type:'time',width:'92px'}], rowWord:'Cast', onChange:save});
+  tW=new FH.Table(document.getElementById('t-crew'), S.crew, {columns:[{key:'dept',label:'Dept',width:'100px'},{key:'role',label:'Role'},{key:'name',label:'Name'},{key:'call',label:'Call',type:'time',width:'92px'},{key:'phone',label:'Phone',width:'120px'}], rowWord:'Crew', onChange:save});
+  document.querySelectorAll('.sub-tbl table').forEach(t=>t.style.minWidth='0');
+  sheetsMenu(); preview();
+}
+function save(){ FH.save('callsheet', store); preview(); sheetsMenu(true); }
+function sheetsMenu(keep){ const s=document.getElementById('sheets'); s.innerHTML=store.sheets.map((x,i)=>`<option value="${i}" ${x===S?'selected':''}>${e(x.f.dayof?'Day '+x.f.dayof:'Call sheet '+(i+1))}${x.f.date?' · '+e(x.f.date):''}</option>`).join('')+(store.sheets.length>1?'<option value="del">✕ Delete this call sheet</option>':''); }
+document.getElementById('sheets').onchange=ev=>{ const v=ev.target.value; if(v==='del'){ FH.confirm('Delete this call sheet?','This cannot be undone.','Delete',()=>{ store.sheets=store.sheets.filter(x=>x!==S); store.cur=0; S=store.sheets[0]; FH.save('callsheet',store); mount(); }); sheetsMenu(); return; } store.cur=+v; S=store.sheets[+v]; FH.save('callsheet',store); mount(); };
+document.getElementById('b-new').onclick=()=>{ const n=blank(); ['title','company','director','producer','ad','contacts','hospital','loc','parking'].forEach(k=>n.f[k]=S.f[k]||''); n.crew=JSON.parse(JSON.stringify(S.crew)); store.sheets.push(n); store.cur=store.sheets.length-1; S=n; FH.save('callsheet',store); mount(); FH.toast('New call sheet, with your production details and crew copied over.'); };
+function preview(){ const f=S.f, sc=S.scenes.groups[0].rows, ca=S.cast.groups[0].rows, cr=S.crew.groups[0].rows;
+  document.getElementById('sheet').innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div class="muted" style="font-size:10px;letter-spacing:.12em;text-transform:uppercase">${e(f.company||'')}</div><h1>${e(f.title||FH.currentProject().name)}</h1><div class="muted" style="font-size:12px">CALL SHEET · ${f.dayof?'Day '+e(f.dayof):''} ${f.date?'· '+FH.fmtDate(f.date):''}</div></div><div style="text-align:right"><div class="muted" style="font-size:10px;letter-spacing:.12em">UNIT CALL</div><div class="bigcall">${e(f.call||'—')}</div></div></div>
+  <div class="grid2"><div class="box"><b>Shooting call</b>${e(f.shoot||'—')}<br><b style="margin-top:5px">Lunch</b>${e(f.lunch||'—')}<br><b style="margin-top:5px">Est. wrap</b>${e(f.wrap||'—')}</div><div class="box"><b>Location</b>${e(f.loc||'—').replace(/\n/g,'<br>')}<br><b style="margin-top:5px">Parking</b>${e(f.parking||'—')}</div><div class="box"><b>Weather</b>${e(f.wx||'—')} ${e(f.temp||'')}<br><b style="margin-top:5px">Sunrise / sunset</b>${e(f.sun||'—')}<br><b style="margin-top:5px">Nearest A&amp;E</b>${e(f.hospital||'—')}</div></div>
+  <div class="grid2" style="grid-template-columns:1fr 1fr"><div class="box"><b>Director · Producer · 1st AD</b>${e(f.director||'—')} · ${e(f.producer||'—')} · ${e(f.ad||'—')}</div><div class="box"><b>Contacts</b>${e(f.contacts||'—')}</div></div>
+  <h2>Scenes</h2>${sc.length?`<table><tr><th>Sc</th><th>Set</th><th>D/N</th><th>Pgs</th><th>Cast</th><th>Notes</th></tr>${sc.map(r=>`<tr><td><b>${e(r.sc)}</b></td><td>${e(r.set)}</td><td>${e(r.dn)}</td><td>${e(r.pages)}</td><td>${e(r.cast)}</td><td>${e(r.notes)}</td></tr>`).join('')}</table>`:'<p class="muted">—</p>'}
+  <h2>Cast</h2>${ca.length?`<table><tr><th>#</th><th>Actor</th><th>Character</th><th>Pick-up</th><th>Call</th><th>H/MU</th><th>On set</th></tr>${ca.map(r=>`<tr><td>${e(r.num)}</td><td><b>${e(r.actor)}</b></td><td>${e(r.character)}</td><td>${e(r.pickup)}</td><td>${e(r.call)}</td><td>${e(r.hmu)}</td><td>${e(r.onset)}</td></tr>`).join('')}</table>`:'<p class="muted">—</p>'}
+  <h2>Crew</h2>${cr.length?`<table><tr><th>Dept</th><th>Role</th><th>Name</th><th>Call</th><th>Phone</th></tr>${cr.map(r=>`<tr><td>${e(r.dept)}</td><td>${e(r.role)}</td><td><b>${e(r.name)}</b></td><td>${e(r.call||f.call||'')}</td><td>${e(r.phone)}</td></tr>`).join('')}</table>`:'<p class="muted">—</p>'}
+  ${S.shots&&S.shots.length?`<h2>Shot list</h2><table><tr><th>Sc</th><th>Shot</th><th>Size</th><th>Move</th><th>Lens</th><th>Description</th></tr>${S.shots.map(r=>`<tr><td>${e(r.scene)}</td><td><b>${e(r.shot)}</b></td><td>${e(r.size)}</td><td>${e(r.move)}</td><td>${e(r.lens)}</td><td>${e(r.desc)}</td></tr>`).join('')}</table>`:''}
+  <h2>Safety · Catering · Notes</h2><p style="font-size:11.5px"><b>Safety:</b> ${e(f.safety||'—')}<br><b>Catering:</b> ${e(f.catering||'—')}<br><b>Notes:</b> ${e(f.notes||'—').replace(/\n/g,'<br>')}</p>
+  ${f.advance?`<h2>Advance schedule</h2><p style="font-size:11.5px">${e(f.advance).replace(/\n/g,'<br>')}</p>`:''}`; }
+// imports
+const sched=FH.load('schedule',{groups:[]}), shots=FH.load('shotlist',{groups:[]});
+document.getElementById('imp-day').innerHTML=(sched.groups||[]).map((g,i)=>`<option value="${i}">${e(g.name)}${g.date?' · '+e(g.date):''}</option>`).join('')||'<option>No schedule yet</option>';
+document.getElementById('b-imp').onclick=()=>{ const g=(sched.groups||[])[+document.getElementById('imp-day').value]; if(!g){ FH.toast('Make a Production Schedule first.'); return; }
+  S.scenes.groups[0].rows=g.rows.map(r=>({id:FH.uid(), sc:r.sc, set:(r.ie||'')+'. '+(r.set||''), dn:r.dn, pages:r.pages, cast:r.cast, notes:r.desc}));
+  const ids=new Set(g.rows.flatMap(r=>String(r.cast||'').split(/[\s,]+/).filter(Boolean))); const castList=(sched.cast&&sched.cast.groups[0].rows)||[];
+  S.cast.groups[0].rows=castList.filter(c=>ids.has(String(c.num))).map(c=>({id:FH.uid(), num:c.num, actor:c.actor, character:c.character}));
+  if(g.date) S.f.date=g.date; S.f.dayof=S.f.dayof||String(+document.getElementById('imp-day').value+1)+' of '+sched.groups.length; save(); mount(); FH.toast('Scenes and cast filled in from '+g.name+'.'); };
+document.getElementById('b-shots').onclick=()=>{ const i=+document.getElementById('imp-day').value, g=(shots.groups||[])[i]; if(!g){ FH.toast('No shot list day '+(i+1)+' yet.'); return; } S.shots=g.rows.map(r=>({scene:r.scene,shot:r.shot,size:r.size,move:r.move,lens:r.lens,desc:r.desc})); if(g.sunrise||g.sunset) S.f.sun=(g.sunrise||'—')+' / '+(g.sunset||'—'); if(g.call) S.f.call=g.call; save(); mount(); FH.toast('Shot list added to the call sheet.'); };
+document.getElementById('b-crew').onclick=()=>{ const R=[['Direction','Director'],['Direction','1st AD'],['Production','Producer'],['Camera','DP'],['Camera','1st AC / focus puller'],['Camera','2nd AC / DIT'],['Lighting','Gaffer'],['Lighting','Spark'],['Grip','Key grip'],['Sound','Sound recordist'],['Sound','Boom op'],['Art','Production designer'],['Costume','Costume'],['Hair & MU','Make-up artist'],['Continuity','Script supervisor'],['Production','Runner']];
+  S.crew.groups[0].rows.push(...R.map(([d,r])=>({id:FH.uid(), dept:d, role:r}))); save(); mount(); };
+document.getElementById('b-print').onclick=()=>FH.print(document.getElementById('sheet').innerHTML, (S.f.title||'Call sheet')+' '+(S.f.date||''));
+mount();
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Production Schedule Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+.legend{display:flex;gap:10px;flex-wrap:wrap;font:10px var(--mono)}.legend span{padding:3px 8px;border-radius:4px;color:#111}
+table.grid tr[data-row] td input,table.grid tr[data-row] td select,table.grid tr[data-row] td textarea{color:#141210}
+table.grid tr[data-row] td .ib{background:#fff8;color:#333;border-color:#0002}
+table.grid tr[data-row] td.handle{color:#0008}
+.dayx{display:flex;gap:6px;align-items:center}.dayx input{width:auto;padding:3px 6px;font-size:11.5px}
+table.dood{border-collapse:collapse;font:11px var(--mono)}table.dood td,table.dood th{border:1px solid var(--border2);padding:4px 7px;text-align:center}table.dood td:first-child,table.dood th:first-child{text-align:left}
+</style></head><body>
+<div class="wrap"><div class="layout r">
+  <div>
+    <div class="tbl-bar"><div class="legend"><span style="background:#fffef8">INT · DAY</span><span style="background:#fff3a8">EXT · DAY</span><span style="background:#b9d6ff">INT · NIGHT</span><span style="background:#b8e8b8">EXT · NIGHT</span><span style="background:#ffd3a8">DAWN / DUSK</span></div><span class="spacer"></span><button class="btn" id="b-day">+ Shoot day</button></div>
+    <div id="tbl"></div>
+    <p class="hint" style="margin-top:12px">Each coloured strip is a scene. Drag ⋮⋮ to move scenes between days. Pages in eighths, e.g. <b>1 3/8</b>. Cast uses the ID numbers from the cast list.</p>
+  </div>
+  <div>
+    <div class="card"><div class="label">Overview</div><div class="readout" id="ov"></div></div>
+    <div class="card"><div class="label">Cast list</div><div id="cast"></div></div>
+    <div class="card"><div class="label">Day out of days</div><p class="hint" style="margin-bottom:8px">Which days each actor works (W), starts (S) and finishes (F).</p><div style="overflow:auto" id="dood"></div></div>
+  </div>
+</div></div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'02 · Prep · Finalise', name:'Production Schedule Builder', actions:'<button class="btn" id="b-csv">CSV</button><button class="btn accent" id="b-print">Print / PDF</button>'});
+let data=FH.load('schedule', ()=>({cast:{groups:[{id:FH.uid(),name:'',rows:[{id:FH.uid(),num:'1',character:'',actor:''}]}]}, groups:[{id:FH.uid(), name:'Day 1', date:'', rows:[{id:FH.uid(), sc:'1', ie:'INT', dn:'DAY', set:'', desc:'', pages:'1', cast:'1', hrs:2}]}]}));
+const pg=t=>{ t=String(t||'').trim(); if(!t) return 0; let m=t.match(/^(\d+)\s+(\d+)\/8$/); if(m) return +m[1]+m[2]/8; m=t.match(/^(\d+)\/8$/); if(m) return m[1]/8; return parseFloat(t)||0; };
+const fmtPg=n=>{ const w=Math.floor(n+1e-9), e=Math.round((n-w)*8); return (w?w:'')+(e?(w?' ':'')+e+'/8':'')||'0'; };
+const colour=r=>r.dn==='DAWN'||r.dn==='DUSK'?'#ffd3a8':r.ie==='EXT'?(r.dn==='NIGHT'?'#b8e8b8':'#fff3a8'):(r.dn==='NIGHT'?'#b9d6ff':'#fffef8');
+const cols=[
+  {key:'sc', label:'Sc', width:'56px'}, {key:'ie', label:'I/E', type:'select', options:['INT','EXT','INT/EXT'], width:'82px'},
+  {key:'dn', label:'D/N', type:'select', options:['DAY','NIGHT','DAWN','DUSK'], width:'86px'},
+  {key:'set', label:'Set / location', width:'170px'}, {key:'desc', label:'Synopsis', type:'long'},
+  {key:'pages', label:'Pages', width:'70px', placeholder:'1 3/8'}, {key:'cast', label:'Cast IDs', width:'86px', placeholder:'1,2'},
+  {key:'hrs', label:'Est. hrs', type:'num', width:'70px', sum:true},
+];
+const table=new FH.Table(document.getElementById('tbl'), data, {columns:cols, grouped:true, groupWord:'Day', rowWord:'Scene strip', rerender:true, sumLabel:'Total',
+  newRow:()=>({ie:'INT', dn:'DAY', hrs:2}), newGroup:n=>({name:'Day '+n, date:''}), rowStyle:r=>`background:${colour(r)}`,
+  groupExtra:g=>`<span class="dayx"><input type="date" data-gd="${g.id}" value="${FH.esc(g.date||'')}"></span><span class="pill">${fmtPg(g.rows.reduce((s,r)=>s+pg(r.pages),0))} pages</span>`,
+  afterRender:t=>{ document.querySelectorAll('[data-gd]').forEach(i=>i.onchange=()=>{ data.groups.find(g=>g.id===i.dataset.gd).date=i.value; save(); }); side(); },
+  onChange:()=>save()});
+const castTable=new FH.Table(document.getElementById('cast'), data.cast, {columns:[{key:'num',label:'ID',width:'46px'},{key:'character',label:'Character'},{key:'actor',label:'Actor'}], grouped:false, rowWord:'Cast member', rerender:true,
+  newRow:()=>({num:String(data.cast.groups[0].rows.length+1)}), onChange:()=>save()});
+document.querySelector('#cast table').style.minWidth='0';
+function save(){ FH.save('schedule',data); side(); }
+function side(){
+  const all=data.groups.flatMap(g=>g.rows), pages=all.reduce((s,r)=>s+pg(r.pages),0);
+  const by=(k,v)=>all.filter(r=>r[k]===v).length;
+  document.getElementById('ov').innerHTML=`<b>${data.groups.length}</b> shoot days · <b>${all.length}</b> scenes · <b>${fmtPg(pages)}</b> pages<br>≈ <b>${fmtPg(pages/Math.max(1,data.groups.length))}</b> pages a day<br>INT ${by('ie','INT')} · EXT ${by('ie','EXT')} · NIGHT ${by('dn','NIGHT')}`;
+  const cast=data.cast.groups[0].rows, days=data.groups;
+  document.getElementById('dood').innerHTML=cast.length?`<table class="dood"><tr><th>Cast</th>${days.map((d,i)=>`<th title="${FH.esc(d.name)}">D${i+1}</th>`).join('')}<th>Days</th></tr>${cast.map(c=>{ const on=days.map(d=>d.rows.some(r=>String(r.cast||'').split(/[\s,]+/).includes(String(c.num)))); const f=on.indexOf(true), l=on.lastIndexOf(true);
+    return `<tr><td>${FH.esc(c.num)}. ${FH.esc(c.character||c.actor||'')}</td>${on.map((w,i)=>`<td style="${w?'color:var(--accent);font-weight:600':''}">${w?(f===l?'SWF':i===f?'SW':i===l?'WF':'W'):(i>f&&i<l?'H':'')}</td>`).join('')}<td>${on.filter(Boolean).length}</td></tr>`; }).join('')}</table>`:'<p class="hint">Add cast to see it.</p>';
+}
+document.getElementById('b-day').onclick=()=>document.getElementById('tbl-addg').click();
+document.getElementById('b-csv').onclick=()=>{ const rows=[['Day','Date','Scene','I/E','D/N','Set','Synopsis','Pages','Cast','Est hrs']]; data.groups.forEach(g=>g.rows.forEach(r=>rows.push([g.name,g.date,r.sc,r.ie,r.dn,r.set,r.desc,r.pages,r.cast,r.hrs]))); FH.download((FH.currentProject().name+'-schedule.csv').replace(/\s+/g,'-'),FH.csv(rows),'text/csv'); };
+document.getElementById('b-print').onclick=()=>{ const cast=data.cast.groups[0].rows;
+  let h=`<h1>${FH.esc(FH.currentProject().name)} — Shooting schedule</h1>`;
+  data.groups.forEach(g=>{ h+=`<h2>${FH.esc(g.name)}${g.date?' · '+FH.fmtDate(g.date):''} · ${fmtPg(g.rows.reduce((s,r)=>s+pg(r.pages),0))} pages</h2><table><tr><th>Sc</th><th>I/E</th><th>D/N</th><th>Set</th><th>Synopsis</th><th>Pages</th><th>Cast</th></tr>${g.rows.map(r=>`<tr style="background:${colour(r)}"><td><b>${FH.esc(r.sc)}</b></td><td>${r.ie}</td><td>${r.dn}</td><td>${FH.esc(r.set)}</td><td>${FH.esc(r.desc)}</td><td>${FH.esc(r.pages)}</td><td>${FH.esc(r.cast)}</td></tr>`).join('')}</table>`; });
+  h+=`<h2>Cast</h2><table>${cast.map(c=>`<tr><td>${FH.esc(c.num)}</td><td>${FH.esc(c.character)}</td><td>${FH.esc(c.actor)}</td></tr>`).join('')}</table><h2>Day out of days</h2>`+document.getElementById('dood').innerHTML;
+  FH.previewSheet(h, FH.currentProject().name+' schedule'); };
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

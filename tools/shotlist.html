@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Shot List Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css"><script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+.dayx{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.dayx label{font:9.5px var(--mono);color:var(--muted);letter-spacing:.08em}
+.dayx input{width:auto;padding:3px 6px;font-size:11.5px;background:var(--bg)}
+.dayx input[type=text]{width:150px}
+.prog{height:4px;background:var(--border2);border-radius:3px;overflow:hidden;width:90px}.prog i{display:block;height:100%;background:#5fd38a}
+.stats{display:flex;gap:16px;flex-wrap:wrap}
+.stats div{min-width:120px}.stats b{display:block;font:600 20px var(--mono);color:var(--accent)}.stats span{font:9.5px var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+body.live table.grid td:not(:nth-child(2)):not(:nth-child(3)):not(:nth-child(4)):not(:nth-child(5)):not(:nth-child(6)):not(:nth-child(9)) {opacity:.5}
+</style></head><body>
+<div class="wrap">
+  <div class="card" style="margin-bottom:14px"><div class="stats" id="stats"></div></div>
+  <div class="tbl-bar no-print"><input type="text" id="q" placeholder="Filter shots"><button class="btn" id="b-day">+ Shoot day</button><span class="spacer"></span><label class="chip" id="live"><input type="checkbox" id="livebox" style="vertical-align:-2px"> On-the-day mode</label></div>
+  <div id="tbl"></div>
+  <p class="hint" style="margin-top:14px">Drag ⋮⋮ to reorder shots or move them to another day. Setup and shoot minutes add up per day so you can see if the day fits. Sunrise and sunset: look them up for the location and date (e.g. timeanddate.com) and type them in.</p>
+</div>
+<script src="common.js"></script>
+<script>
+const SIZES=['','ECU','CU','MCU','MS','MWS','WS','EWS','OTS','POV','2-shot','Insert','Cutaway','Establishing'];
+const ANGLES=['','Eye level','High','Low','Dutch','Overhead','Ground','Bird’s eye','Shoulder'];
+const MOVES=['','Static','Pan','Tilt','Push in','Pull out','Track','Dolly','Handheld','Gimbal','Slider','Crane / jib','Zoom','Whip pan','Steadicam','Drone'];
+FH.header({kicker:'02 · Prep', name:'Shot List Builder', actions:'<label class="btn">⬆ Import Excel / CSV<input type="file" id="imp" accept=".xlsx,.xls,.csv,.tsv,.ods" hidden></label><button class="btn" id="b-tpl">Template</button><button class="btn" id="b-csv">CSV</button><button class="btn accent" id="b-print">Print / PDF</button>'});
+let data=FH.load('shotlist', ()=>({groups:[{id:FH.uid(), name:'Day 1', date:'', loc:'', call:'08:00', sunrise:'', sunset:'', rows:[{id:FH.uid(), scene:'1', shot:'1A', size:'WS', angle:'Eye level', move:'Static', lens:'35', setup:20, dur:15}]}]}));
+function lightOpts(){ let ws='main'; try{ ws=localStorage.getItem('lighting-planner-ws')||'main'; }catch(e){} let pg=[]; try{ pg=JSON.parse(localStorage.getItem(ws==='main'?'lighting-planner-pages-v1':'lighting-planner-pages-v1:'+ws)||'[]'); if(!Array.isArray(pg)) pg=pg.pages||[]; }catch(e){}
+  return ['',...pg.sort((x,y)=>(x.order||0)-(y.order||0)).map(p=>[p.id, `${p.scene||'Scene 1'} · ${p.name||'Shot'}`])]; }
+function refOpts(){ let m={}; try{ m=FH.load('moodboard',{})||{}; }catch(e){} return ['',...(m.items||[]).filter(i=>i.src||i.type==='note'||i.type==='link').map((i,k)=>[i.id, (i.note||i.text||i.title||i.name||('Reference '+(k+1))).slice(0,40)])]; }
+function toMin(t){ if(!t) return null; const [h,m]=String(t).split(':').map(Number); return isNaN(h)?null:h*60+(m||0); }
+function fmtT(x){ x=((x%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0'); }
+function dayPlan(g){ const crew=toMin(g.call), first=toMin(g.first)??(crew!=null?crew+(+g.prep||60):null), lunchAt=toMin(g.lunch)??(crew!=null?crew+6*60:null), lunchLen=+g.lunchLen||60; const out={}; if(first==null) return {times:out};
+  let t=first, ate=false; g.rows.forEach(r=>{ t+=(+r.setup||0); if(!ate&&lunchAt!=null&&t>=lunchAt){ out['lunch-'+r.id]=fmtT(t); t+=lunchLen; ate=true; } out[r.id]=fmtT(t); t+=(+r.dur||0); });
+  return {times:out, wrap:fmtT(t+30), lastShot:fmtT(t), lunchTime:ate?null:null}; }
+function shotTime(r){ const g=data.groups.find(x=>x.rows.includes(r)); return g?(dayPlan(g).times[r.id]||''):''; }
+const cols=[
+  {key:'done', label:'✓', type:'check', width:'34px'},
+  {key:'time', label:'Time', type:'calc', calc:r=>shotTime(r), width:'58px'},
+  {key:'scene', label:'Sc', width:'54px', placeholder:'1'},
+  {key:'shot', label:'Shot', width:'60px', placeholder:'1A'},
+  {key:'size', label:'Size', type:'select', options:SIZES, width:'92px'},
+  {key:'angle', label:'Angle', type:'select', options:ANGLES, width:'98px'},
+  {key:'move', label:'Movement', type:'select', options:MOVES, width:'104px'},
+  {key:'lens', label:'Lens mm', type:'num', width:'70px'},
+  {key:'rig', label:'Camera / rig', width:'120px', placeholder:'Tripod'},
+  {key:'desc', label:'Description', type:'long', placeholder:'What we see'},
+  {key:'cast', label:'Cast', width:'110px'},
+  {key:'loc', label:'Location', width:'110px'},
+  {key:'sound', label:'Sound', type:'select', options:['','Sync','MOS','Wild track','Playback'], width:'88px'},
+  {key:'light', label:'Lighting setup', type:'select', options:lightOpts(), width:'150px'},
+  {key:'ref', label:'Mood ref', type:'select', options:refOpts(), width:'130px'},
+  {key:'setup', label:'Setup min', type:'num', width:'72px', sum:true},
+  {key:'dur', label:'Shoot min', type:'num', width:'72px', sum:true},
+  {key:'notes', label:'Notes', type:'long'},
+];
+const table=new FH.Table(document.getElementById('tbl'), data, {columns:cols, grouped:true, groupWord:'Day', rowWord:'Shot', rerender:true, sumLabel:'All days',
+  newRow:g=>{ const last=g.rows[g.rows.length-1]; return last?{scene:last.scene, shot:nextShot(last.shot), size:'', angle:'Eye level', move:'Static', lens:last.lens, rig:last.rig, setup:10, dur:10}:{scene:'', shot:'', setup:10, dur:10}; },
+  newGroup:n=>({name:'Day '+n, date:'', loc:'', call:'08:00', sunrise:'', sunset:''}),
+  rowStyle:r=>r.done?'opacity:.45;text-decoration:line-through':'',
+  groupExtra:g=>{ const done=g.rows.filter(r=>r.done).length, mins=g.rows.reduce((s,r)=>s+(+r.setup||0)+(+r.dur||0),0), pl=dayPlan(g), wrap=pl.wrap||'';
+    return `<span class="dayx"><label>DATE</label><input type="date" data-gf="date" data-g="${g.id}" value="${FH.esc(g.date||'')}"><label>LOCATION</label><input type="text" data-gf="loc" data-g="${g.id}" value="${FH.esc(g.loc||'')}"><label>CREW CALL</label><input type="time" data-gf="call" data-g="${g.id}" value="${FH.esc(g.call||'')}"><label>FIRST SHOT</label><input type="time" data-gf="first" data-g="${g.id}" value="${FH.esc(g.first||'')}" title="Empty = crew call + 1h"><label>LUNCH</label><input type="time" data-gf="lunch" data-g="${g.id}" value="${FH.esc(g.lunch||'')}" title="Empty = crew call + 6h"><label>☀ RISE</label><input type="time" data-gf="sunrise" data-g="${g.id}" value="${FH.esc(g.sunrise||'')}"><label>SET</label><input type="time" data-gf="sunset" data-g="${g.id}" value="${FH.esc(g.sunset||'')}"></span><span class="pill" title="Shots done">${done}/${g.rows.length} done</span><span class="prog"><i style="width:${g.rows.length?done/g.rows.length*100:0}%"></i></span><span class="pill" title="Setup + shooting time; wrap includes lunch and 30 min to pack down">${Math.floor(mins/60)}h ${mins%60}m${wrap?' · wrap ≈ '+wrap:''}</span>`; },
+  afterRender:t=>{ document.querySelectorAll('[data-gf]').forEach(i=>i.addEventListener('change',()=>{ const g=data.groups.find(x=>x.id===i.dataset.g); g[i.dataset.gf]=i.value; save(); t.render(); })); },
+  onChange:()=>save()
+});
+function save(){ FH.save('shotlist', data); stats(); }
+const KEYMAP=[['scene',/^(sc|scene|scene ?(no|#|number))$/],['shot',/^(shot|shot ?(no|#|number)|#)$/],['size',/(size|frame|framing|shot ?type|type)/],['angle',/angle/],['move',/(move|movement|camera ?move)/],['lens',/(lens|focal|mm)/],['rig',/(rig|support|camera$|equipment|gear)/],['desc',/(desc|action|what|subject|description)/],['cast',/(cast|talent|actor|character)/],['loc',/(loc|location|set)/],['sound',/(sound|audio)/],['setup',/setup/],['dur',/(dur|duration|shoot ?(min|time)|est)/],['notes',/(note|comment)/],['done',/(done|shot\?|complete|status)/],['day',/^(day|shoot ?day)$/]];
+function mapHeader(h){ h=String(h||'').toLowerCase().trim().replace(/[._]/g,' '); for(const [k,re] of KEYMAP) if(re.test(h)) return k; return null; }
+function normSize(v){ const x=String(v||'').toUpperCase().replace(/\s+/g,''); const M={'EXTREMECLOSEUP':'ECU','CLOSEUP':'CU','MEDIUMCLOSEUP':'MCU','MEDIUM':'MS','MEDIUMSHOT':'MS','MEDIUMWIDE':'MWS','WIDE':'WS','WIDESHOT':'WS','EXTREMEWIDE':'EWS','LS':'WS','LONGSHOT':'WS','ELS':'EWS','OVERTHESHOULDER':'OTS','2SHOT':'2-shot','TWOSHOT':'2-shot','INSERT':'Insert'}; return SIZES.find(s=>s.toUpperCase().replace(/\s+/g,'')===x)||M[x]||String(v||''); }
+async function importFile(f){ let rows;
+  if(/\.(csv|tsv)$/i.test(f.name)&&!window.XLSX){ const t=await f.text(), d=f.name.endsWith('.tsv')?'\t':(t.split('\n')[0].split(';').length>t.split('\n')[0].split(',').length?';':','); rows=t.split(/\r?\n/).filter(Boolean).map(l=>{ const o=[]; let c='',q=false; for(const ch of l){ if(ch==='"') q=!q; else if(ch===d&&!q){ o.push(c); c=''; } else c+=ch; } o.push(c); return o; }); }
+  else { if(!window.XLSX){ FH.toast('The Excel reader needs internet. Save the sheet as CSV and import that.'); return; } const wb=XLSX.read(await f.arrayBuffer()); rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''}); }
+  let hi=rows.findIndex(r=>r.filter(c=>mapHeader(c)).length>=2); if(hi<0){ FH.toast('Could not find a header row (e.g. Scene, Shot, Size, Description).'); return; }
+  const keys=rows[hi].map(mapHeader), body=rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim()));
+  FH.modal(`<h3>Import ${body.length} shots</h3><p class="hint">Matched columns: ${rows[hi].map((h,i)=>keys[i]?`<b>${FH.esc(h)}</b> → ${(cols.find(c=>c.key===keys[i])||{label:keys[i]==='day'?'Day':keys[i]}).label}`:'').filter(Boolean).join(', ')}. Unmatched columns go into Notes.</p><div class="seg" style="margin:12px 0"><button class="on" data-im="add">Add as new day(s)</button><button data-im="replace">Replace the whole list</button></div><div class="acts"><button class="btn" onclick="FH.close()">Cancel</button><button class="btn accent" id="im-ok">Import</button></div>`);
+  let mode='add'; document.querySelectorAll('[data-im]').forEach(b=>b.onclick=()=>{ mode=b.dataset.im; document.querySelectorAll('[data-im]').forEach(x=>x.classList.toggle('on',x===b)); });
+  document.getElementById('im-ok').onclick=()=>{ FH.close(); const days={}; body.forEach(r=>{ const o={id:FH.uid(), angle:'', move:'', setup:10, dur:10}, extra=[]; r.forEach((v,i)=>{ const k=keys[i]; v=String(v).trim(); if(!v) return; if(!k){ extra.push(rows[hi][i]+': '+v); return; } if(k==='size') v=normSize(v); if(k==='done') v=/^(y|yes|x|✓|done|true|1)$/i.test(v); if(['setup','dur','lens'].includes(k)) v=parseFloat(v)||''; if(k==='notes'&&o.notes) v=o.notes+'; '+v; o[k]=v; }); if(extra.length) o.notes=[o.notes,...extra].filter(Boolean).join('; '); const d=o.day||'Imported'; delete o.day; (days[d]=days[d]||[]).push(o); });
+    const groups=Object.entries(days).map(([n,rs])=>({id:FH.uid(), name:/^\d+$/.test(n)?'Day '+n:n, date:'', loc:'', call:'08:00', rows:rs}));
+    if(mode==='replace') data.groups=groups; else data.groups.push(...groups); table.data=data; save(); table.render(); FH.toast('Imported '+body.length+' shots.'); }; }
+
+function nextShot(s){ const m=String(s||'').match(/^(\d*)([A-Z]?)$/i); if(m&&m[2]) return m[1]+String.fromCharCode(m[2].toUpperCase().charCodeAt(0)+1); if(m&&m[1]) return m[1]+'B'; return ''; }
+function addMin(t,m){ const [h,mm]=t.split(':').map(Number); const x=h*60+mm+m; return String(Math.floor(x/60)%24).padStart(2,'0')+':'+String(x%60).padStart(2,'0'); }
+function stats(){ const all=data.groups.flatMap(g=>g.rows), done=all.filter(r=>r.done).length, mins=all.reduce((s,r)=>s+(+r.setup||0)+(+r.dur||0),0);
+  document.getElementById('stats').innerHTML=`<div><b>${data.groups.length}</b><span>Shoot days</span></div><div><b>${all.length}</b><span>Shots</span></div><div><b>${done}</b><span>Done</span></div><div><b>${Math.floor(mins/60)}h ${mins%60}m</b><span>Planned time</span></div><div><b>${(all.length/Math.max(1,data.groups.length)).toFixed(1)}</b><span>Shots per day</span></div>`; }
+stats();
+document.getElementById('q').oninput=e=>{ table.filter=e.target.value; table.render(); };
+document.getElementById('b-day').onclick=()=>document.getElementById('tbl-addg').click();
+document.getElementById('livebox').onchange=e=>{ document.body.classList.toggle('live',e.target.checked); document.getElementById('live').classList.toggle('on',e.target.checked); };
+document.getElementById('imp').onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) importFile(f); };
+document.getElementById('b-tpl').onclick=()=>FH.download('shot-list-template.csv', FH.csv([['Day','Scene','Shot','Size','Angle','Movement','Lens','Rig','Description','Cast','Location','Sound','Setup','Duration','Notes'],['1','1','1A','WS','Eye level','Static','24','Tripod','Anna enters the kitchen','Anna','Kitchen','Sync','20','15','']]), 'text/csv');
+document.getElementById('b-csv').onclick=()=>{ const rows=[['Day','Date','Location',...cols.map(c=>c.label)]]; data.groups.forEach(g=>g.rows.forEach(r=>rows.push([g.name,g.date,g.loc,...cols.map(c=>c.type==='check'?(r[c.key]?'yes':''):r[c.key]??'')]))); FH.download((FH.currentProject().name+'-shot-list.csv').replace(/\s+/g,'-'), FH.csv(rows), 'text/csv'); };
+document.getElementById('b-print').onclick=()=>{ const p=FH.currentProject(); let h=`<h1>${FH.esc(p.name)} — Shot list</h1>`;
+  data.groups.forEach(g=>{ h+=`<h2>${FH.esc(g.name)}${g.date?' · '+FH.fmtDate(g.date):''}${g.loc?' · '+FH.esc(g.loc):''}</h2><p class="muted" style="font-size:11px;margin-bottom:6px">Call ${FH.esc(g.call||'—')} · Sunrise ${FH.esc(g.sunrise||'—')} · Sunset ${FH.esc(g.sunset||'—')}</p><table><tr><th>✓</th><th>Sc</th><th>Shot</th><th>Size</th><th>Angle</th><th>Move</th><th>Lens</th><th>Rig</th><th>Description</th><th>Cast</th><th>Min</th><th>Notes</th></tr>${g.rows.map(r=>`<tr><td>${r.done?'✓':'☐'}</td><td>${FH.esc(r.scene)}</td><td><b>${FH.esc(r.shot)}</b></td><td>${FH.esc(r.size)}</td><td>${FH.esc(r.angle)}</td><td>${FH.esc(r.move)}</td><td>${FH.esc(r.lens)}</td><td>${FH.esc(r.rig)}</td><td>${FH.esc(r.desc)}</td><td>${FH.esc(r.cast)}</td><td>${(+r.setup||0)+(+r.dur||0)}</td><td>${FH.esc(r.notes)}</td></tr>`).join('')}</table>`; });
+  FH.previewSheet(h, p.name+' shot list'); };
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

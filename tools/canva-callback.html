@@ -1,0 +1,5 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Connecting Canva…</title><link rel="stylesheet" href="common.css"></head><body style="display:grid;place-items:center;height:100vh"><div class="card" style="max-width:380px;text-align:center"><h3 id="m">Connecting to Canva…</h3><p class="hint" id="s"></p></div>
+<script src="common.js"></script><script src="canva.js"></script><script>
+(async()=>{ const q=new URLSearchParams(location.search); try{ if(q.get('error')) throw new Error(q.get('error_description')||q.get('error')); await FHCanva.exchange(q.get('code'),q.get('state')); document.getElementById('m').textContent='Canva connected ✓'; document.getElementById('s').textContent='You can close this window.'; setTimeout(()=>{ if(window.opener) window.close(); else location.href='../#moodboard'; },900); }
+catch(e){ document.getElementById('m').textContent='Could not connect'; document.getElementById('s').textContent=e.message; } })();
+</script></body></html>

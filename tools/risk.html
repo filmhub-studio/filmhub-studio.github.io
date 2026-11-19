@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Risk Assessment Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>.matrix{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;font:10px var(--mono);text-align:center}.matrix div{padding:6px 0;border-radius:4px}</style></head><body>
+<div class="wrap">
+<div class="layout">
+  <div>
+    <div class="card"><div class="label">Production</div>
+      <div class="field"><label>Production</label><input type="text" data-f="prod"></div>
+      <div class="field"><label>Location(s)</label><input type="text" data-f="loc"></div>
+      <div class="row2"><div class="field"><label>Shoot date(s)</label><input type="text" data-f="dates" placeholder="12–14 Dec"></div><div class="field"><label>Assessed by</label><input type="text" data-f="by"></div></div>
+      <div class="field"><label>Activity summary</label><textarea data-f="activity" placeholder="e.g. Two-day interior drama shoot in a flat, small crew, LED lights, one night exterior on a quiet street."></textarea></div>
+    </div>
+    <div class="card"><div class="label">Emergency</div>
+      <div class="field"><label>Nearest A&amp;E</label><input type="text" data-f="ae" placeholder="Antrim Area Hospital, 45 Bush Rd"></div>
+      <div class="row2"><div class="field"><label>First aider</label><input type="text" data-f="firstaid"></div><div class="field"><label>First aid kit</label><input type="text" data-f="kit" placeholder="With the 1st AD"></div></div>
+      <div class="row2"><div class="field"><label>Fire assembly point</label><input type="text" data-f="fire"></div><div class="field"><label>Emergency number</label><input type="text" data-f="emerg" value="999 / 112"></div></div>
+      <div class="field"><label>Production contact on the day</label><input type="text" data-f="contact"></div>
+    </div>
+    <div class="card"><div class="label">Risk rating</div><p class="hint" style="margin-bottom:8px">Score = likelihood × severity (1–5 each). 1–4 low, 5–9 medium, 10–14 high, 15+ stop and re-plan.</p><div class="matrix" id="matrix"></div></div>
+    <div class="card"><div class="label">Sign-off</div><div class="row2"><div class="field"><label>Producer</label><input type="text" data-f="sig1"></div><div class="field"><label>Date</label><input type="date" data-f="sigdate"></div></div><div class="field"><label>Reviewed by (tutor)</label><input type="text" data-f="sig2"></div></div>
+  </div>
+  <div>
+    <div class="tbl-bar"><span class="label" style="margin:0">Quick add</span><div class="chips" id="quick"></div></div>
+    <div id="tbl"></div>
+  </div>
+</div></div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'02 · Prep · Finalise', name:'Risk Assessment Builder', actions:'<button class="btn accent" id="b-print">Print / PDF</button>'});
+const COMMON={
+ 'Cables / trips':['Crew, cast, public','Cables taped down or matted, run along walls, kept out of walkways; high-vis tape on edges.'],
+ 'Electrical':['Crew','PAT-tested kit only; no overloaded sockets; RCDs on mains; lights off before changing bulbs; keep away from water.'],
+ 'Hot lights':['Crew, cast','Gloves for hot heads/barndoors; let lamps cool before striking; keep away from fabric and paper.'],
+ 'Stands & falling kit':['Crew, cast','Sandbag every stand; C-stand legs out of walkways; nothing boomed over cast’s heads without a safety line.'],
+ 'Manual handling':['Crew','Two-person lifts for heavy cases; lift with legs; use a trolley; take breaks.'],
+ 'Working at height':['Crew','Stepladders checked and footed; no standing on top step; no working at height alone.'],
+ 'Vehicles / road':['Crew, cast, public','Shoot from pavement; high-vis for crew near road; spotter; no stopping traffic without permission.'],
+ 'Public':['Public, crew','Inform neighbours; signs; don’t block access; a crew member manages passers-by.'],
+ 'Weather / cold':['Crew, cast','Check forecast; warm layers, hot drinks; cover kit; plan a wet-weather alternative.'],
+ 'Night shoot':['Crew, cast','Head torches; buddy system; plan transport home; reflective clothing near roads.'],
+ 'Fatigue / long hours':['Crew, cast','Max 10-hour day; proper lunch; 11 hours between wrap and next call; safe travel home.'],
+ 'Food & allergies':['Crew, cast','Collect allergies before shoot; label food; keep EpiPen holders known to first aider.'],
+ 'Smoke / haze':['Crew, cast','Water-based haze only; ventilate; warn asthmatic cast/crew; switch off smoke alarms only with permission and a fire watch.'],
+ 'Water':['Cast, crew','No electrics near water; RCD; safety observer; warm towels; no deep water without a qualified person.'],
+ 'Fake weapons / props':['Cast, crew, public','Props only, never real; tell the police beforehand for public locations; prop master keeps them.'],
+ 'Stunts / fights':['Cast','Rehearsed at walking pace; choreographed; crash mats; no stunts without a qualified coordinator.'],
+ 'Lone working':['Crew','Nobody works alone; sign in/out; share location with producer.'],
+ 'Covid / illness':['All','Stay home if ill; hand gel; ventilate small rooms.'],
+};
+let data=FH.load('risk', ()=>({f:{emerg:'999 / 112'}, groups:[{id:FH.uid(), name:'', rows:[]}]}));
+const score=(l,s)=>(+l||0)*(+s||0), band=n=>n>=15?['Stop','#d0473c']:n>=10?['High','#e0783a']:n>=5?['Medium','#d9b23b']:n>0?['Low','#4fae6a']:['—','#555'];
+const LS5=[['','—'],['1','1'],['2','2'],['3','3'],['4','4'],['5','5']];
+const cols=[
+  {key:'hazard', label:'Hazard', width:'150px'}, {key:'who', label:'Who might be harmed', width:'130px'},
+  {key:'l', label:'L', type:'select', options:LS5, width:'52px'}, {key:'s', label:'S', type:'select', options:LS5, width:'52px'},
+  {key:'risk', label:'Risk', type:'calc', calc:r=>{ const n=score(r.l,r.s); return n?n+' '+band(n)[0]:'—'; }, width:'86px'},
+  {key:'controls', label:'Controls / how we reduce it', type:'long'},
+  {key:'rl', label:'L after', type:'select', options:LS5, width:'60px'}, {key:'rs', label:'S after', type:'select', options:LS5, width:'60px'},
+  {key:'res', label:'Residual', type:'calc', calc:r=>{ const n=score(r.rl,r.rs); return n?n+' '+band(n)[0]:'—'; }, width:'90px'},
+  {key:'owner', label:'Owner', width:'100px'}, {key:'ok', label:'✓', type:'check', width:'34px'},
+];
+const table=new FH.Table(document.getElementById('tbl'), data, {columns:cols, grouped:false, rowWord:'Hazard', rerender:true, onChange:()=>FH.save('risk',data),
+  newRow:()=>({l:'',s:'',rl:'',rs:''}),
+  afterRender:()=>document.querySelectorAll('[data-calc]').forEach(td=>{ const n=parseInt(td.textContent)||0; td.style.color=band(n)[1]; td.style.fontWeight='600'; })});
+document.querySelectorAll('[data-f]').forEach(i=>{ i.value=data.f[i.dataset.f]??i.value; i.oninput=()=>{ data.f[i.dataset.f]=i.value; FH.save('risk',data); }; });
+document.getElementById('quick').innerHTML=Object.keys(COMMON).map(k=>`<span class="chip" data-h="${FH.esc(k)}">+ ${FH.esc(k)}</span>`).join('');
+document.querySelectorAll('[data-h]').forEach(c=>c.onclick=()=>{ const [who,ctl]=COMMON[c.dataset.h]; data.groups[0].rows.push({id:FH.uid(), hazard:c.dataset.h, who, l:'3', s:'3', controls:ctl, rl:'1', rs:'3', owner:'', ok:false}); FH.save('risk',data); table.render(); FH.toast(c.dataset.h+' added. Adjust the scores for your shoot.'); });
+document.getElementById('matrix').innerHTML='<div></div>'+[1,2,3,4,5].map(s=>`<div style="color:var(--muted)">S${s}</div>`).join('')+[5,4,3,2,1].map(l=>`<div style="color:var(--muted)">L${l}</div>`+[1,2,3,4,5].map(s=>`<div style="background:${band(l*s)[1]}33;color:${band(l*s)[1]}">${l*s}</div>`).join('')).join('');
+document.getElementById('b-print').onclick=()=>{ const f=data.f, rows=data.groups[0].rows;
+  const h=`<h1>Risk assessment — ${FH.esc(f.prod||FH.currentProject().name)}</h1><p class="muted">${FH.esc(f.loc||'')} · ${FH.esc(f.dates||'')} · assessed by ${FH.esc(f.by||'—')}</p><p style="margin:8px 0;font-size:12px">${FH.esc(f.activity||'')}</p>
+  <h2>Emergency</h2><table><tr><th>Nearest A&amp;E</th><td>${FH.esc(f.ae||'')}</td><th>Emergency</th><td>${FH.esc(f.emerg||'')}</td></tr><tr><th>First aider</th><td>${FH.esc(f.firstaid||'')}</td><th>First aid kit</th><td>${FH.esc(f.kit||'')}</td></tr><tr><th>Fire assembly</th><td>${FH.esc(f.fire||'')}</td><th>Contact</th><td>${FH.esc(f.contact||'')}</td></tr></table>
+  <h2>Hazards</h2><table><tr><th>Hazard</th><th>Who</th><th>L×S</th><th>Controls</th><th>Residual</th><th>Owner</th></tr>${rows.map(r=>{ const a=score(r.l,r.s), b=score(r.rl,r.rs); return `<tr><td><b>${FH.esc(r.hazard)}</b></td><td>${FH.esc(r.who)}</td><td>${a||''} ${a?band(a)[0]:''}</td><td>${FH.esc(r.controls)}</td><td>${b||''} ${b?band(b)[0]:''}</td><td>${FH.esc(r.owner)}</td></tr>`; }).join('')}</table>
+  <h2>Sign-off</h2><table><tr><th>Producer</th><td>${FH.esc(f.sig1||'')}</td><th>Date</th><td>${FH.esc(f.sigdate||'')}</td></tr><tr><th>Reviewed by</th><td colspan="3">${FH.esc(f.sig2||'')}</td></tr></table>`;
+  FH.previewSheet(h,'Risk assessment'); };
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

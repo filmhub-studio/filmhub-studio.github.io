@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Colour Temperature Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>canvas{width:100%;display:block;border-radius:10px}.kbar{height:12px;border-radius:6px;background:linear-gradient(90deg,#ff8a2b,#ffb46b,#ffd8aa,#fff1e2,#f4f5ff,#d9e4ff,#b9ccff)}.marks{display:flex;justify-content:space-between;font:9.5px var(--mono);color:var(--muted);margin-top:3px}</style></head><body>
+<div class="wrap"><div class="layout r">
+  <div><div class="card"><canvas id="c" width="1200" height="640"></canvas><p class="hint" style="margin-top:8px" id="cap"></p></div></div>
+  <div>
+    <div class="card"><div class="label">Key light (lamp)</div><div class="field"><label>Colour temperature <em id="lv"></em></label><input type="range" id="l" min="1800" max="10000" step="50" value="3200"></div>
+      <div class="chips" id="lp"></div></div>
+    <div class="card"><div class="label">Window / second source</div><label class="hint" style="display:flex;gap:6px;margin-bottom:8px"><input type="checkbox" id="w2" checked> Window light on</label><div class="field"><label>Colour temperature <em id="wv"></em></label><input type="range" id="w" min="1800" max="10000" step="50" value="5600"></div></div>
+    <div class="card"><div class="label">Camera</div><div class="field"><label>White balance <em id="bv"></em></label><input type="range" id="b" min="2500" max="10000" step="50" value="3200"></div><div class="kbar"></div><div class="marks"><span>2500</span><span>3200</span><span>4300</span><span>5600</span><span>7500</span><span>10000</span></div><div class="chips" style="margin-top:10px" id="bp"></div></div>
+    <div class="card"><div class="readout" id="ro"></div></div>
+  </div>
+</div></div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'Learn', name:'Colour Temperature Lab', actions:''});
+const $=id=>document.getElementById(id);
+const PRE=[['Candle',1900],['Sodium street',2100],['Household bulb',2700],['Tungsten',3200],['Mixed / dusk',4300],['Daylight / HMI',5600],['Overcast',6500],['Blue hour / shade',8000]];
+$('lp').innerHTML=PRE.map(([n,k])=>`<span class="chip" data-l="${k}">${n} ${k}K</span>`).join(''); $('bp').innerHTML=[['Tungsten',3200],['Daylight',5600],['Shade',6500],['Auto (avg)',0]].map(([n,k])=>`<span class="chip" data-b="${k}">${n}${k?' '+k+'K':''}</span>`).join('');
+document.querySelectorAll('[data-l]').forEach(c=>c.onclick=()=>{ $('l').value=c.dataset.l; draw(); });
+document.querySelectorAll('[data-b]').forEach(c=>c.onclick=()=>{ $('b').value=+c.dataset.b||Math.round(($('w2').checked?(+$('l').value+ +$('w').value)/2:+$('l').value)/50)*50; draw(); });
+function k2rgb(k){ const t=k/100; let r,g,b; if(t<=66){ r=255; g=99.47*Math.log(t)-161.12; b=t<=19?0:138.52*Math.log(t-10)-305.04; } else { r=329.7*Math.pow(t-60,-0.1332); g=288.12*Math.pow(t-60,-0.0755); b=255; } return [r,g,b].map(v=>Math.max(0,Math.min(255,v))/255); }
+function seen(light, wb){ const L=k2rgb(light), B=k2rgb(wb); return L.map((v,i)=>v/B[i]); } // camera divides by WB white
+function look(light, wb){ const d=light-wb; if(Math.abs(d)<250) return 'neutral'; return (Math.abs(d)>1800?'very ':Math.abs(d)>800?'':'slightly ')+(d<0?'warm (orange)':'cool (blue)'); }
+function draw(){ const L=+$('l').value, Wn=+$('w').value, B=+$('b').value, win=$('w2').checked; $('lv').textContent=L+'K'; $('wv').textContent=Wn+'K'; $('bv').textContent=B+'K';
+  const c=$('c'), x=c.getContext('2d'), W=c.width, H=c.height, sl=seen(L,B), sw=seen(Wn,B);
+  const shade=(base,k,amt)=>`rgb(${base.map((v,i)=>Math.round(Math.min(255,v*k[i]*amt))).join(',')})`;
+  // room
+  const wall=[205,200,192]; x.fillStyle=shade(wall,sl,.45); x.fillRect(0,0,W,H);
+  if(win){ const g=x.createLinearGradient(W,0,W*.35,0); g.addColorStop(0,shade([255,255,255],sw,.7)); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; x.fillRect(0,0,W,H); x.fillStyle=shade([235,240,255],sw,1); x.fillRect(W-230,90,170,300); x.strokeStyle=shade([90,80,70],sl,.6); x.lineWidth=10; x.strokeRect(W-230,90,170,300); x.beginPath(); x.moveTo(W-145,90); x.lineTo(W-145,390); x.moveTo(W-230,240); x.lineTo(W-60,240); x.stroke(); }
+  const lg=x.createRadialGradient(260,250,10,260,250,520); lg.addColorStop(0,shade([255,255,255],sl,.9)); lg.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=lg; x.fillRect(0,0,W,H);
+  x.fillStyle=shade([120,90,65],sl,.8); x.fillRect(0,H*.72,W,H*.28); // table
+  // lamp
+  x.fillStyle=shade([60,50,40],sl,.8); x.fillRect(245,260,14,170); x.fillStyle=shade([255,240,220],sl,1); x.beginPath(); x.moveTo(190,265); x.lineTo(315,265); x.lineTo(285,195); x.lineTo(220,195); x.closePath(); x.fill();
+  // person
+  const skin=[226,180,150], shirt=[200,200,205]; const mix=(a,b,t)=>a.map((v,i)=>v*(1-t)+b[i]*t);
+  const sk=win?mix(sl,sw,.35):sl; x.fillStyle=shade(shirt,sk,.85); x.beginPath(); x.ellipse(640,560,170,150,0,Math.PI,0); x.fill(); x.fillStyle=shade(skin,sk,.95); x.beginPath(); x.ellipse(640,330,90,112,0,0,7); x.fill();
+  if(win){ x.fillStyle=shade(skin,sw,.95); x.beginPath(); x.ellipse(640,330,90,112,0,-Math.PI/2,Math.PI/2); x.fill(); x.fillStyle=shade(skin,sl,.95); x.beginPath(); x.ellipse(640,330,90,112,0,Math.PI/2,Math.PI*1.5); x.fill(); }
+  x.fillStyle=shade([60,40,30],sk,.8); x.beginPath(); x.ellipse(640,255,98,62,0,Math.PI,0); x.fill();
+  // grey card
+  x.fillStyle=shade([118,118,118],sl,1); x.fillRect(880,470,110,140); x.fillStyle='rgba(255,255,255,.7)'; x.font='14px JetBrains Mono'; x.fillText('grey card (lamp)',870,460);
+  $('ro').innerHTML=`Lamp ${L}K on a ${B}K camera looks <b>${look(L,B)}</b>.${win?`<br>Window ${Wn}K looks <b>${look(Wn,B)}</b>.<br>Difference between sources: <b>${Math.abs(L-Wn)}K</b> ${Math.abs(L-Wn)>1500?'→ clearly mixed. Gel one source (CTO / CTB) or embrace it as a look.':Math.abs(L-Wn)>600?'→ visible mismatch on skin.':'→ close enough.'}`:''}<br><span style="font-size:10px">Rule: set the camera to the light you want to look white. Anything warmer goes orange, anything cooler goes blue.</span>`;
+  $('cap').textContent=`Camera white balance ${B}K · lamp ${L}K${win?' · window '+Wn+'K':''}`; }
+document.querySelectorAll('input').forEach(i=>i.addEventListener('input',draw));
+draw();
+
+
+/* ===== Gel calculator & mixed light ===== */
+(function(){ const col=document.querySelector('.layout.r>div:last-child');
+  col.insertAdjacentHTML('beforeend',`<div class="card"><div class="label">Gel calculator</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="field"><label>Light is</label><input type="number" id="g-from" value="5600" step="50"></div><div class="field"><label>Make it look like</label><input type="number" id="g-to" value="3200" step="50"></div></div><div class="chips" id="g-pre" style="margin-bottom:8px"></div><div class="readout" id="g-out"></div></div>
+  <div class="card"><div class="label">Green / magenta fix</div><div class="field"><label>Source has <em id="gm-v"></em></label><input type="range" id="gm" min="-1" max="1" step="0.125" value="0"></div><div class="readout" id="gm-out"></div><p class="hint">Fluorescent tubes, cheap LEDs and sodium lights often read green. Old tungsten through some diffusion can read magenta.</p></div>
+  <div class="card"><div class="label">Mixed light check</div><div id="mx"></div><button class="btn sm" id="mx-add">+ Light source</button><div class="readout" id="mx-out" style="margin-top:8px"></div></div>`);
+  const g=id=>document.getElementById(id);
+  const GELS=[['Full CTO',-159],['¾ CTO',-131],['½ CTO',-81],['¼ CTO',-42],['⅛ CTO',-20],['Full CTB',131],['¾ CTB',100],['½ CTB',68],['¼ CTB',30],['⅛ CTB',12]];
+  const LOSS={'Full CTO':0.66,'¾ CTO':0.5,'½ CTO':0.33,'¼ CTO':0.2,'⅛ CTO':0.1,'Full CTB':1.66,'¾ CTB':1.33,'½ CTB':1,'¼ CTB':0.5,'⅛ CTB':0.33};
+  const M=k=>1e6/k;
+  g('g-pre').innerHTML=[['HMI → tungsten',5600,3200],['Tungsten → daylight',3200,5600],['Daylight → sunset',5600,2700],['Window → match LED 4300',6500,4300]].map(([n,a,b])=>`<span class="chip" data-g="${a},${b}">${n}</span>`).join('');
+  document.querySelectorAll('[data-g]').forEach(c=>c.onclick=()=>{ const [a,b]=c.dataset.g.split(','); g('g-from').value=a; g('g-to').value=b; gel(); });
+  function best(shift){ let bestC=null; const singles=GELS.map(x=>[[x],x[1]]); const doubles=[]; GELS.forEach(a=>GELS.forEach(b=>{ if(a[0]<=b[0]&&Math.sign(a[1])===Math.sign(b[1])) doubles.push([[a,b],a[1]+b[1]]); })); [...singles,...doubles].forEach(c=>{ const err=Math.abs(c[1]-shift)+(c[0].length-1)*8; if(!bestC||err<bestC.err) bestC={g:c[0],sum:c[1],err}; }); return bestC; }
+  function gel(){ const a=+g('g-from').value, b=+g('g-to').value; if(!a||!b) return; const shift=M(b)-M(a);
+    if(Math.abs(shift)<8){ g('g-out').innerHTML='Less than 8 mired apart — no gel needed.'; return; }
+    const r=best(shift), res=1e6/(M(a)+r.sum), loss=r.g.reduce((s,x)=>s+LOSS[x[0]],0);
+    g('g-out').innerHTML=`Mired shift <b>${shift>0?'+':''}${Math.round(shift)}</b> (${shift<0?'warmer':'cooler'})<br>Use <b>${r.g.map(x=>x[0]).join(' + ')}</b> → about <b>${Math.round(res/50)*50}K</b><br>Light loss ≈ <b>${loss.toFixed(2)} stops</b>${loss>1.2?' — you may need a bigger fixture':''}<br><span class="hint">Or on a bi-colour / RGB LED just dial ${b}K: no loss.</span>`; }
+  ['g-from','g-to'].forEach(id=>g(id).oninput=gel); gel();
+  function gm(){ const x=+g('gm').value; g('gm-v').textContent=x===0?'no tint':(Math.abs(x)===1?'strong':Math.abs(x)>=.5?'medium':'slight')+(x>0?' green':' magenta');
+    const fix=x===0?'Nothing needed.':x>0?`Add <b>${Math.abs(x)>=.875?'Full':Math.abs(x)>=.625?'¾':Math.abs(x)>=.375?'½':Math.abs(x)>=.1875?'¼':'⅛'} Minus Green</b> (magenta) on the light, or put Plus Green on every other light and set camera tint to magenta.`:`Add <b>${Math.abs(x)>=.875?'Full':Math.abs(x)>=.625?'¾':Math.abs(x)>=.375?'½':Math.abs(x)>=.1875?'¼':'⅛'} Plus Green</b> on the light, or a green tint in camera.`;
+    g('gm-out').innerHTML=fix; } g('gm').oninput=gm; gm();
+  let MX=FH.LS.get('fh:ctmix')||[{n:'Key LED',k:5600},{n:'Practical lamp',k:2700},{n:'Window',k:6500}];
+  function mx(){ FH.LS.set('fh:ctmix',MX); const wb=+(g('b')||{value:5600}).value;
+    g('mx').innerHTML=MX.map((s,i)=>`<div style="display:grid;grid-template-columns:1fr 90px 22px 24px;gap:6px;align-items:center;margin-bottom:6px"><input value="${FH.esc(s.n)}" data-mn="${i}"><input type="number" step="50" value="${s.k}" data-mk="${i}"><span style="width:18px;height:18px;border-radius:50%;background:rgb(${k2rgb(s.k).map(Math.round).join(',')})"></span><button class="ib" data-mr="${i}">✕</button></div>`).join('');
+    g('mx-out').innerHTML=`With camera WB at <b>${wb}K</b>:<br>`+MX.map(s=>{ const d=M(s.k)-M(wb); return `${FH.esc(s.n)}: ${Math.abs(d)<15?'neutral':Math.round(Math.abs(d))+' mired '+(d>0?'warmer (orange)':'cooler (blue)')}`; }).join('<br>');
+    g('mx').querySelectorAll('[data-mn]').forEach(i=>i.oninput=()=>{ MX[+i.dataset.mn].n=i.value; FH.LS.set('fh:ctmix',MX); });
+    g('mx').querySelectorAll('[data-mk]').forEach(i=>i.onchange=()=>{ MX[+i.dataset.mk].k=+i.value||5600; mx(); });
+    g('mx').querySelectorAll('[data-mr]').forEach(b=>b.onclick=()=>{ MX.splice(+b.dataset.mr,1); mx(); }); }
+  g('mx-add').onclick=()=>{ MX.push({n:'Light '+(MX.length+1),k:4300}); mx(); }; if(g('b')) g('b').addEventListener('input',mx); mx();
+})();
+</script></body></html>

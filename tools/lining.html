@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Script Lining</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.sub{display:flex;gap:8px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+.view{flex:1;min-height:0;display:flex}
+.mid{flex:1;overflow:auto;padding:24px 16px;min-width:0;background:var(--bg)}
+.rp{width:300px;border-left:1px solid var(--border);overflow:auto;padding:14px;background:var(--surface);flex-shrink:0}
+.pg{position:relative;margin:0 auto 22px;box-shadow:0 10px 40px rgba(0,0,0,.35);background:#fff;touch-action:none}
+.pg canvas{display:block;width:100%;height:auto}
+.pg svg{position:absolute;inset:0;width:100%;height:100%}
+.pg .pn{position:absolute;right:-34px;top:0;font:10px var(--mono);color:var(--muted)}
+.shot{border:1px solid var(--border2);border-left:4px solid var(--c);border-radius:9px;padding:8px 10px;margin-bottom:7px;cursor:pointer;background:var(--bg)}
+.shot.on{border-color:var(--accent);border-left-color:var(--c)}.shot b{font:600 13px var(--mono)}.shot .d{font-size:11.5px;color:var(--muted)}
+.empty{max-width:560px;margin:60px auto;text-align:center}
+@media(max-width:820px){.rp{width:200px}}
+</style></head><body>
+<div class="sub no-print"><div class="seg" id="tools"><button data-tool="line" class="on" title="Drag down the page over what the shot covers (L)">│ On camera</button><button data-tool="off" title="Drag over a line where the character is off camera (Z)">⌇ Off camera</button><button data-tool="select" title="Select (V)">↖ Select</button></div>
+<span class="hint" id="thint">Drag top-to-bottom over the lines a shot covers.</span><span class="spacer"></span>
+<label class="btn">Open PDF<input type="file" id="pdf" accept="application/pdf" hidden></label><button class="btn" id="b-sl">→ Shot list</button><button class="btn accent" id="b-print">Print lined script</button></div>
+<div class="view"><div class="mid" id="mid"></div><div class="rp" id="rp"></div></div>
+<script src="common.js"></script>
+<script>
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const $=id=>document.getElementById(id), e=FH.esc;
+FH.header({kicker:'03 · Shoot', name:'Script Lining', help:'<p><b>Tramlines</b> show which part of the script each shot covers.</p><p><b>On camera:</b> drag down the page over the lines the shot covers. A straight line means the character speaking is on camera.</p><p><b>Off camera:</b> drag over part of an existing line to make that part zigzag (the speaker is not in frame).</p><p>Click a line to name the shot (1A, 1B…) and add size and notes. Send all shots to the Shot List in one go. A line ending with an arrow continues on the next page.</p>'});
+const COLS=['#ff5d6c','#7aa7ff','#5ee0a0','#ffb86b','#b39dff','#34d3b6','#ff7ab8','#ffd166'];
+const PID=()=>FH.currentId(), PK=()=>'lining-pdf:'+PID();
+let D=FH.load('lining', ()=>({lines:[], pdfName:''})), pdf=null, tool='line', sel=null, drag=null;
+function save(){ FH.save('lining', D); }
+const IDB={ db:null, open(){ return new Promise((res,rej)=>{ if(this.db) return res(this.db); const r=indexedDB.open('filmhub',1); r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>res(this.db=r.result); r.onerror=rej; }); },
+  async get(k){ const db=await this.open(); return new Promise(res=>{ const r=db.transaction('files').objectStore('files').get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); }); },
+  async set(k,v){ const db=await this.open(); return new Promise((res,rej)=>{ const t=db.transaction('files','readwrite'); t.objectStore('files').put(v,k); t.oncomplete=res; t.onerror=rej; }); } };
+document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+function setTool(t){ tool=t; document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t)); $('thint').textContent={line:'Drag top-to-bottom over the lines a shot covers.',off:'Drag over part of a line to mark it off camera (zigzag).',select:'Click a line to edit it. Delete removes it.'}[t]; }
+async function loadPDF(buf){ if(!window.pdfjsLib){ FH.toast('The PDF reader needs internet to load.'); return; } pdf=await pdfjsLib.getDocument({data:buf}).promise; await renderPages(); }
+$('pdf').onchange=async ev=>{ const f=ev.target.files[0]; ev.target.value=''; if(!f) return; const buf=await f.arrayBuffer(); await IDB.set(PK(), {name:f.name, buf}); D.pdfName=f.name; save(); await loadPDF(buf.slice(0)); FH.toast(f.name+' · '+pdf.numPages+' pages'); };
+function empty(hasCov){ $('mid').innerHTML=`<div class="empty"><h2 style="font-family:var(--display)">Line your script</h2><p class="hint">Open the shooting script as a PDF. It stays on this device; your lines and shot notes sync with the project.</p><div style="display:flex;gap:8px;justify-content:center;margin-top:16px">${hasCov?'<button class="btn accent" id="usecov">Use the PDF from Script Coverage</button>':''}<label class="btn ${hasCov?'':'accent'}">Open PDF<input type="file" accept="application/pdf" hidden onchange="document.getElementById('pdf').onchange(event)"></label></div></div>`;
+  if(hasCov) $('usecov').onclick=async()=>{ const f=await IDB.get('coverage-pdf:'+PID()); if(f){ await IDB.set(PK(),f); D.pdfName=f.name; save(); loadPDF(f.buf.slice(0)); } }; side(); }
+async function renderPages(){ const mid=$('mid'); mid.innerHTML=''; const w=Math.min(820, mid.clientWidth-60);
+  for(let p=1;p<=pdf.numPages;p++){ const page=await pdf.getPage(p), vp0=page.getViewport({scale:1}), sc=w/vp0.width*(devicePixelRatio||1), vp=page.getViewport({scale:sc});
+    const box=document.createElement('div'); box.className='pg'; box.style.width=w+'px'; box.dataset.p=p; const c=document.createElement('canvas'); c.width=vp.width; c.height=vp.height; box.appendChild(c);
+    box.insertAdjacentHTML('beforeend',`<svg viewBox="0 0 1000 ${Math.round(1000*vp0.height/vp0.width)}" preserveAspectRatio="none"></svg><span class="pn">${p}</span>`); mid.appendChild(box);
+    page.render({canvasContext:c.getContext('2d'), viewport:vp}); bindPage(box); }
+  drawAll(); side(); }
+const H=box=>+box.querySelector('svg').getAttribute('viewBox').split(' ')[3];
+function pt(box,ev){ const r=box.getBoundingClientRect(); return {x:(ev.clientX-r.left)/r.width*1000, y:(ev.clientY-r.top)/r.height*H(box)}; }
+function bindPage(box){ const p=+box.dataset.p;
+  box.onpointerdown=ev=>{ const q=pt(box,ev); const near=D.lines.filter(l=>l.page===p&&Math.abs(l.x-q.x)<14&&q.y>=l.y1-10&&q.y<=l.y2+10).sort((a,b)=>Math.abs(a.x-q.x)-Math.abs(b.x-q.x))[0];
+    if(tool==='select'||(tool==='line'&&near&&ev.detail>0&&!ev.shiftKey&&Math.abs(near.x-q.x)<8)){ sel=near?near.id:null; drawAll(); side(); return; }
+    box.setPointerCapture(ev.pointerId);
+    if(tool==='off'){ if(!near){ FH.toast('Drag over an existing line to mark it off camera.'); return; } drag={off:near, y0:q.y, seg:[q.y,q.y]}; near.off=near.off||[]; near.off.push(drag.seg); return; }
+    const n=D.lines.length, prev=D.lines[n-1]; const l={id:FH.uid(), page:p, x:Math.round(q.x), y1:Math.round(q.y), y2:Math.round(q.y), shot:nextShot(prev&&prev.shot), size:'', desc:'', lens:'', off:[], c:COLS[n%COLS.length]}; D.lines.push(l); drag={line:l, y0:q.y}; sel=l.id; };
+  box.onpointermove=ev=>{ if(!drag) return; const q=pt(box,ev); if(drag.line){ drag.line.y1=Math.round(Math.min(drag.y0,q.y)); drag.line.y2=Math.round(Math.max(drag.y0,q.y)); } else { const l=drag.off; drag.seg[0]=Math.max(l.y1,Math.min(drag.y0,q.y)); drag.seg[1]=Math.min(l.y2,Math.max(drag.y0,q.y)); } drawPage(box); };
+  box.onpointerup=()=>{ if(!drag) return; if(drag.line&&drag.line.y2-drag.line.y1<12){ D.lines=D.lines.filter(x=>x!==drag.line); sel=null; } if(drag.off&&drag.seg[1]-drag.seg[0]<6) drag.off.off.pop(); drag=null; save(); drawAll(); side(); }; }
+function nextShot(s){ const m=String(s||'').match(/^(\d*)([A-Z]?)$/i); if(m&&m[2]) return m[1]+String.fromCharCode(m[2].toUpperCase().charCodeAt(0)+1); if(m&&m[1]) return m[1]+'A'; return '1A'; }
+function zig(x,a,b){ let d=`M${x} ${a}`, k=0; for(let y=a+8;y<b;y+=8){ d+=` L${x+(k++%2?-6:6)} ${y}`; } return d+` L${x} ${b}`; }
+function lineSVG(l,h){ const on=l.id===sel, segs=[...(l.off||[])].sort((a,b)=>a[0]-b[0]); let y=l.y1, path='';
+  segs.forEach(([a,b])=>{ if(a>y) path+=`M${l.x} ${y} L${l.x} ${a} `; path+=zig(l.x,Math.max(a,y),b)+' '; y=Math.max(y,b); }); if(y<l.y2) path+=`M${l.x} ${y} L${l.x} ${l.y2}`;
+  const cont=l.y2>h-60; return `<g data-l="${l.id}" style="cursor:pointer"><path d="${path}" stroke="${l.c}" stroke-width="${on?4:3}" fill="none" stroke-linecap="round" ${on?'filter="drop-shadow(0 0 3px rgba(0,0,0,.5))"':''}/><line x1="${l.x-10}" x2="${l.x+10}" y1="${l.y1}" y2="${l.y1}" stroke="${l.c}" stroke-width="3"/>${cont?`<path d="M${l.x-8} ${l.y2-6} L${l.x} ${l.y2+6} L${l.x+8} ${l.y2-6}" stroke="${l.c}" stroke-width="3" fill="none"/>`:`<line x1="${l.x-10}" x2="${l.x+10}" y1="${l.y2}" y2="${l.y2}" stroke="${l.c}" stroke-width="3"/>`}<text x="${l.x}" y="${l.y1-8}" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="15" font-weight="700" fill="${l.c}" stroke="#fff" stroke-width="3" paint-order="stroke">${e(l.shot||'')}</text>${l.size?`<text x="${l.x}" y="${l.y1+(cont?0:0)-24}" text-anchor="middle" font-family="Inter" font-size="10" fill="#333">${e(l.size)}</text>`:''}</g>`; }
+function drawPage(box){ const p=+box.dataset.p, h=H(box); box.querySelector('svg').innerHTML=D.lines.filter(l=>l.page===p).map(l=>lineSVG(l,h)).join(''); }
+function drawAll(){ document.querySelectorAll('.pg').forEach(drawPage); }
+function side(){ const L=[...D.lines].sort((a,b)=>a.page-b.page||a.x-b.x), l=D.lines.find(x=>x.id===sel);
+  $('rp').innerHTML=(l?`<div class="label">Shot on page ${l.page}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="field"><label>Shot</label><input id="f-shot" value="${e(l.shot)}"></div><div class="field"><label>Size</label><input id="f-size" list="sizes" value="${e(l.size)}" placeholder="MCU"><datalist id="sizes">${['ECU','CU','MCU','MS','MWS','WS','EWS','OTS','POV','2-shot','Insert'].map(x=>`<option>${x}</option>`).join('')}</datalist></div><div class="field"><label>Lens mm</label><input id="f-lens" value="${e(l.lens)}"></div><div class="field"><label>Colour</label><input type="color" id="f-c" value="${l.c}" style="height:34px;padding:0;border:none;background:none"></div><div class="field" style="grid-column:1/3"><label>Description</label><textarea id="f-desc" style="height:60px">${e(l.desc)}</textarea></div></div><div style="display:flex;gap:6px;margin:4px 0 16px">${(l.off||[]).length?'<button class="btn" id="f-clr">Clear zigzags</button>':''}<span class="spacer"></span><button class="btn danger" id="f-del">Delete line</button></div>`:'')
+  +`<div class="label">Shots ${L.length}</div>${L.map(x=>`<div class="shot ${x.id===sel?'on':''}" data-s="${x.id}" style="--c:${x.c}"><b>${e(x.shot||'—')}</b> <span class="hint">p.${x.page}${x.size?' · '+e(x.size):''}${x.lens?' · '+e(x.lens)+'mm':''}</span>${x.desc?`<div class="d">${e(x.desc)}</div>`:''}</div>`).join('')||'<p class="hint">No lines yet.</p>'}`;
+  if(l){ ['shot','size','lens','desc'].forEach(k=>$('f-'+k).oninput=ev=>{ l[k]=ev.target.value; save(); drawAll(); }); $('f-desc').onblur=()=>side(); $('f-c').oninput=ev=>{ l.c=ev.target.value; save(); drawAll(); };
+    $('f-del').onclick=delSel; if($('f-clr')) $('f-clr').onclick=()=>{ l.off=[]; save(); drawAll(); side(); }; }
+  $('rp').querySelectorAll('[data-s]').forEach(x=>x.onclick=()=>{ sel=x.dataset.s; drawAll(); side(); const ln=D.lines.find(y=>y.id===sel); const pg=document.querySelector(`.pg[data-p="${ln.page}"]`); pg&&pg.scrollIntoView({behavior:'smooth',block:'start'}); }); }
+function delSel(){ if(!sel) return; D.lines=D.lines.filter(x=>x.id!==sel); sel=null; save(); drawAll(); side(); }
+document.addEventListener('keydown',ev=>{ if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return; const k=ev.key.toLowerCase(); if(k==='l') setTool('line'); if(k==='z'&&!ev.metaKey&&!ev.ctrlKey) setTool('off'); if(k==='v') setTool('select'); if((ev.key==='Delete'||ev.key==='Backspace')&&sel){ ev.preventDefault(); delSel(); } if(ev.key==='Escape'){ sel=null; drawAll(); side(); } });
+$('b-sl').onclick=()=>{ const L=[...D.lines].sort((a,b)=>a.page-b.page||a.x-b.x); if(!L.length){ FH.toast('Draw some lines first.'); return; }
+  const shots=[]; L.forEach(l=>{ const s=shots.find(x=>x.shot===l.shot); if(s){ if(!s.desc&&l.desc) s.desc=l.desc; } else shots.push(l); });
+  FH.confirm(`Send ${shots.length} shots to the Shot List?`,'They are added as a new day called “From lining”. Shots already on that day with the same name are updated instead of duplicated.','Send',()=>{
+    const sl=FH.load('shotlist', ()=>({groups:[]})); let g=sl.groups.find(x=>x.name==='From lining'); if(!g){ g={id:FH.uid(), name:'From lining', date:'', loc:'', call:'08:00', rows:[]}; sl.groups.push(g); }
+    shots.forEach(l=>{ const sc=(String(l.shot).match(/^\d+/)||[''])[0]; let r=g.rows.find(x=>x.shot===l.shot); if(!r){ r={id:FH.uid(), angle:'Eye level', move:'Static', setup:10, dur:10}; g.rows.push(r); } Object.assign(r,{scene:sc, shot:l.shot, size:l.size||r.size||'', lens:l.lens||r.lens||'', desc:l.desc||r.desc||''}); });
+    FH.save('shotlist', sl); FH.toast('Shot list updated.'); }); };
+$('b-print').onclick=()=>{ const imgs=[...document.querySelectorAll('.pg')].map(b=>{ const c=b.querySelector('canvas'), s=b.querySelector('svg'); const o=document.createElement('canvas'); o.width=c.width; o.height=c.height; const x=o.getContext('2d'); x.drawImage(c,0,0); return new Promise(res=>{ const im=new Image(); im.onload=()=>{ x.drawImage(im,0,0,o.width,o.height); res(o.toDataURL('image/jpeg',.85)); }; im.onerror=()=>res(o.toDataURL('image/jpeg',.85)); im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(s).replace('<svg','<svg xmlns="http://www.w3.org/2000/svg" width="'+o.width+'" height="'+o.height+'"')); }); });
+  if(!imgs.length){ FH.toast('Open a PDF first.'); return; } Promise.all(imgs).then(a=>FH.print(a.map(src=>`<img src="${src}" style="width:100%;page-break-after:always">`).join(''), 'Lined script')); };
+(async()=>{ const f=await IDB.get(PK()).catch(()=>null); if(f&&f.buf){ try{ await loadPDF(f.buf.slice(0)); return; }catch(err){} } const cov=await IDB.get('coverage-pdf:'+PID()).catch(()=>null); empty(!!(cov&&cov.buf)); })();
+</script></body></html>

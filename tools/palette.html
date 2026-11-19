@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Colour Palette Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+.ctl{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.ctl .k{display:flex;align-items:center;gap:8px}.ctl .k input{width:140px}.ctl .k b{font:600 14px var(--mono);color:var(--accent);min-width:22px}
+.pgrid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}@media(max-width:1000px){.pgrid{grid-template-columns:1fr}}
+.stage{background:#000;border-radius:14px;overflow:hidden}.stage img{width:100%;display:block;max-height:62vh;object-fit:contain}
+.strip{display:flex;height:96px}.strip div{display:flex;align-items:flex-end;padding:8px;font:600 10.5px var(--mono);cursor:pointer;min-width:30px;transition:flex .2s}
+.under{display:flex;gap:6px;align-items:center;padding:10px 0}
+.plist .row{display:grid;grid-template-columns:30px 1fr 70px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer}
+.plist .row i{width:30px;height:30px;border-radius:8px;border:1px solid var(--border2)}.plist .row b{font:600 12.5px var(--mono)}.plist .row small{display:block;font:10.5px var(--mono);color:var(--muted)}
+.plist .row .pc{font:600 11px var(--mono);text-align:right}.plist .row .pc span{display:block;height:3px;background:var(--border2);border-radius:2px;margin-top:4px;overflow:hidden}.plist .row .pc span em{display:block;height:100%;background:var(--text)}
+.match{display:flex;align-items:center;gap:10px}.match .big{font-size:40px}
+.r3{display:grid;grid-template-columns:24px 1fr 60px;gap:10px;align-items:center;margin:8px 0}.r3 i{width:24px;height:24px;border-radius:6px}.r3 small{display:block;font:10.5px var(--mono);color:var(--muted)}.r3 .v{font:600 12px var(--mono);text-align:right}.r3 .v small{color:var(--faint)}
+.bar5{position:relative;height:14px;border-radius:7px;display:flex;overflow:hidden;margin-top:8px}.tgt{position:relative;height:10px;margin-top:2px}.tgt b{position:absolute;top:0;width:2px;height:10px;background:var(--text)}
+.deck{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.deck figure{position:relative;border-radius:10px;overflow:hidden;background:#000}.deck img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.deck figcaption{display:flex;height:16px}.deck figcaption i{flex:1}.deck button{position:absolute;top:6px;right:6px}
+.saved .row{display:flex;align-items:center;gap:8px;margin-bottom:8px}.saved .s{display:flex;flex:1;height:24px;border-radius:6px;overflow:hidden}.saved .s i{flex:1}
+</style></head><body>
+<div class="wrap">
+  <div class="ctl"><div class="seg" id="mode"><button data-m="one">Single still</button><button data-m="deck">Reference deck <span class="pill" id="dn"></span></button></div>
+    <div class="k"><span class="label" style="margin:0">Colours</span><input type="range" id="k" min="3" max="10"><b id="kv"></b></div>
+    <div class="k"><span class="label" style="margin:0">Pick by</span><div class="seg" id="pick"><button data-p="coverage">Coverage</button><button data-p="distinct">Distinct</button></div></div>
+    <span class="hint" id="pickhint"></span></div>
+  <div id="body"></div>
+</div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'01 · Develop', name:'Colour Palette Studio', actions:'<input type="text" id="ptitle" placeholder="Project title (used on exports)" style="width:200px"><label class="btn">Open .json<input type="file" id="oj" accept=".json" hidden></label><button class="btn" id="dj">Download .json</button><button class="btn accent" id="b-print">Export PDF</button>',
+ help:'<p><b>Single still:</b> drop a frame and get its palette. <b>Coverage</b> picks the colours that cover the most area (the real balance of the frame). <b>Distinct</b> favours colours that differ from each other, so small standouts (a red lamp, a costume accent) make the cut.</p><p><b>60/30/10:</b> a classic balance — dominant ~60%, secondary ~30%, accent ~10%. The match score shows how close the frame is.</p><p><b>Reference deck:</b> add stills from your references and the deck blends them into one palette for the whole look.</p>'});
+const e=FH.esc, $=id=>document.getElementById(id);
+let D=Object.assign({mode:'one', k:5, pick:'coverage', still:null, deck:[], saved:[], title:''}, FH.load('palette',{}));
+if(D.stills&&!D.still&&D.stills.length){ D.still=D.stills[0].src; D.deck=D.stills.map(s=>({src:s.src})); delete D.stills; }
+let pal=[]; const save=()=>FH.save('palette',D);
+const hex=c=>'#'+c.map(v=>Math.round(v).toString(16).padStart(2,'0')).join('').toUpperCase();
+function lab(c){ let [r,g,b]=c.map(v=>{ v/=255; return v>.04045?((v+.055)/1.055)**2.4:v/12.92; }); let x=(r*.4124+g*.3576+b*.1805)/.95047, y=r*.2126+g*.7152+b*.0722, z=(r*.0193+g*.1192+b*.9505)/1.08883; const f=t=>t>.008856?Math.cbrt(t):7.787*t+16/116; return [116*f(y)-16, 500*(f(x)-f(y)), 200*(f(y)-f(z))]; }
+const dl=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+function pixels(src){ return new Promise(r=>{ const im=new Image(); im.onload=()=>{ const s=Math.min(1,140/Math.max(im.width,im.height)); const c=document.createElement('canvas'); c.width=Math.max(1,im.width*s|0); c.height=Math.max(1,im.height*s|0); const x=c.getContext('2d'); x.drawImage(im,0,0,c.width,c.height); const d=x.getImageData(0,0,c.width,c.height).data, o=[]; for(let i=0;i<d.length;i+=4) o.push([d[i],d[i+1],d[i+2]]); r(o); }; im.onerror=()=>r([]); im.src=src; }); }
+function kmeans(px,k){ if(!px.length) return []; let C=[px[Math.floor(px.length/2)].slice()]; while(C.length<k){ let best=px[0],bd=-1; for(let i=0;i<px.length;i+=5){ const d=Math.min(...C.map(c=>(c[0]-px[i][0])**2+(c[1]-px[i][1])**2+(c[2]-px[i][2])**2)); if(d>bd){bd=d;best=px[i];} } C.push(best.slice()); }
+  const as=new Int16Array(px.length); for(let it=0;it<14;it++){ const sum=C.map(()=>[0,0,0,0]); px.forEach((p,i)=>{ let b=0,bd=1e9; C.forEach((c,j)=>{ const d=(c[0]-p[0])**2+(c[1]-p[1])**2+(c[2]-p[2])**2; if(d<bd){bd=d;b=j;} }); as[i]=b; const s=sum[b]; s[0]+=p[0];s[1]+=p[1];s[2]+=p[2];s[3]++; }); C=C.map((c,j)=>sum[j][3]?[sum[j][0]/sum[j][3],sum[j][1]/sum[j][3],sum[j][2]/sum[j][3]]:c); }
+  const cnt=C.map(()=>0); as.forEach(a=>cnt[a]++); return C.map((c,j)=>({c, share:cnt[j]/px.length})).filter(x=>x.share>0); }
+function distinct(px,k){ const many=kmeans(px,Math.max(14,k*3)).filter(x=>x.share>.003).map(x=>Object.assign(x,{L:lab(x.c)})); if(!many.length) return [];
+  const chosen=[many.reduce((a,b)=>b.share>a.share?b:a)]; while(chosen.length<k&&chosen.length<many.length){ let best=null,bs=-1; many.forEach(m=>{ if(chosen.includes(m)) return; const s=Math.min(...chosen.map(c=>dl(c.L,m.L)))*Math.pow(m.share,.25); if(s>bs){bs=s;best=m;} }); chosen.push(best); }
+  const out=chosen.map(c=>({c:c.c, share:0, L:c.L})); many.forEach(m=>{ let b=out[0],bd=1e9; out.forEach(o=>{ const d=dl(o.L,m.L); if(d<bd){bd=d;b=o;} }); b.share+=m.share; }); const t=out.reduce((s,o)=>s+o.share,0); out.forEach(o=>o.share/=t); return out; }
+async function analyse(){ $('kv').textContent=D.k; let px=[];
+  if(D.mode==='one'){ if(D.still) px=await pixels(D.still); } else for(const s of D.deck) px=px.concat(await pixels(s.src));
+  pal=(D.pick==='distinct'?distinct(px,D.k):kmeans(px,D.k)).map(p=>Object.assign(p,{hex:hex(p.c)})).sort((a,b)=>b.share-a.share); render(); }
+function render(){ document.querySelectorAll('[data-m]').forEach(b=>b.classList.toggle('on',b.dataset.m===D.mode)); document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===D.pick)); $('dn').textContent=D.deck.length;
+  $('pickhint').textContent=D.pick==='distinct'?'Favours colours that differ from each other, so small standouts make the cut.':'Colours by how much of the frame they cover.';
+  const txt=c=>(c[0]*.299+c[1]*.587+c[2]*.114)>140?'#111':'#fff';
+  const strip=`<div class="strip">${pal.map(p=>`<div style="flex:${Math.max(p.share,.04)};background:${p.hex};color:${txt(p.c)}" data-h="${p.hex}" title="Click to copy">${p.hex}<br>${(p.share*100).toFixed(p.share<.1?1:0)}%</div>`).join('')}</div>`;
+  let left;
+  if(D.mode==='one') left=D.still?`<div class="stage"><img src="${D.still}">${strip}</div><div class="under"><span class="hint">Click a swatch to copy its HEX.</span><span class="spacer"></span><label class="btn sm">Replace still<input type="file" id="f" accept="image/*" hidden></label><button class="btn sm" id="todeck">Add to deck</button><button class="btn sm ghost" id="clr">Clear</button></div>`
+    :`<label class="empty" style="display:block;cursor:pointer;padding:80px 20px"><b style="font:700 20px var(--display);color:var(--text)">Drop a still</b><br>or click to choose one · paste a screenshot with ⌘V / Ctrl+V<input type="file" id="f" accept="image/*" hidden></label>`;
+  else left=`${D.deck.length?`<div class="stage" style="background:none">${strip}</div>`:''}<div class="under"><label class="btn sm accent">+ Add stills<input type="file" id="f" accept="image/*" multiple hidden></label><span class="hint">${D.deck.length} still${D.deck.length===1?'':'s'} blended into one palette</span></div><div class="deck">${D.deck.map((s,i)=>`<figure><img src="${s.src}"><figcaption>${(s.colors||[]).map(c=>`<i style="background:${c}"></i>`).join('')}</figcaption><button class="ib del" data-x="${i}">✕</button></figure>`).join('')||'<div class="empty">Add stills from your references, or use “Add to deck” on a single still.</div>'}</div>`;
+  const t=pal.slice(0,3), tot=t.reduce((s,p)=>s+p.share,0)||1, v=t.map(p=>p.share/tot), dev=t.length===3?Math.abs(v[0]-.6)+Math.abs(v[1]-.3)+Math.abs(v[2]-.1):1, m=Math.max(0,Math.round(100-dev*100/1.2));
+  $('body').innerHTML=`<div class="pgrid"><div>${left}</div><div>
+    <div class="card"><div style="display:flex;align-items:center"><span class="label" style="margin:0">Palette</span><span class="spacer"></span><span class="pill">${pal.length} colours</span></div><div class="plist">${pal.map(p=>`<div class="row" data-h="${p.hex}"><i style="background:${p.hex}"></i><div><b>${p.hex}</b><small>RGB ${p.c.map(x=>Math.round(x)).join(' ')}</small></div><div class="pc">${(p.share*100).toFixed(p.share<.1?1:0)}%<span><em style="width:${p.share*100/Math.max(...pal.map(q=>q.share))}%"></em></span></div></div>`).join('')||'<p class="hint">No still yet.</p>'}</div>
+      <div style="display:flex;gap:6px;margin-top:10px"><button class="btn sm" id="chex">Copy all HEX</button><button class="btn sm" id="crgb">Copy all RGB</button><span class="spacer"></span><button class="btn sm accent" id="sv">Save</button></div></div>
+    ${t.length===3?`<div class="card"><div class="label">60 / 30 / 10</div><div class="match"><span class="big">${m}%</span><span class="hint">match · dominant and secondary by area; the accent is the colour that stands out most.</span></div>
+      <div class="bar5">${t.map((p,i)=>`<i style="flex:${v[i]};background:${p.hex}"></i>`).join('')}</div><div class="tgt"><b style="left:60%"></b><b style="left:90%"></b></div>
+      ${t.map((p,i)=>`<div class="r3"><i style="background:${p.hex}"></i><div><b style="font-size:12.5px">${['Dominant','Secondary','Accent'][i]}</b><small>${p.hex}</small></div><div class="v">${Math.round(v[i]*100)}%<small><br>target ${[60,30,10][i]}%</small></div></div>`).join('')}
+      <p class="hint" style="margin-top:6px"><b>${m>=85?'Close to 60/30/10':v[0]>.75?'One colour dominates':v[0]<.45?'No clear lead colour':'Broadly balanced'}</b> — ${m>=85?'a controlled, deliberate look.':v[0]>.75?'a strong, near-monochrome mood.':v[0]<.45?'busy or evenly mixed; choose one to lead.':v[2]<.06?'the accent is very subtle.':'nudge the accent to make it pop.'}</p></div>`:''}
+    <div class="card saved"><div class="label">Saved palettes</div>${D.saved.map((s,i)=>`<div class="row"><span style="font-size:12px;width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e(s.name)}</span><div class="s">${s.colors.map(c=>`<i style="background:${c}"></i>`).join('')}</div><button class="ib" data-cp="${i}">⧉</button><button class="ib del" data-sd="${i}">✕</button></div>`).join('')||'<p class="hint">Save palettes per scene or look.</p>'}</div>
+  </div></div>`;
+  const f=$('f'); if(f) f.onchange=x=>{ add(x.target.files); x.target.value=''; };
+  document.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>FH.copy(x.dataset.h));
+  const td=$('todeck'); if(td) td.onclick=()=>{ D.deck.push({src:D.still, colors:pal.map(p=>p.hex)}); save(); render(); FH.toast(`Added to the deck (${D.deck.length} still${D.deck.length>1?'s':''})`); };
+  const cl=$('clr'); if(cl) cl.onclick=()=>{ D.still=null; save(); analyse(); };
+  document.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{ D.deck.splice(+b.dataset.x,1); save(); analyse(); });
+  $('chex').onclick=()=>FH.copy(pal.map(p=>p.hex).join(' ')); $('crgb').onclick=()=>FH.copy(pal.map(p=>`rgb(${p.c.map(x=>Math.round(x)).join(', ')})`).join('\n'));
+  $('sv').onclick=()=>{ if(!pal.length) return; FH.prompt('Save palette','Name','Scene '+(D.saved.length+1),n=>{ D.saved.push({name:n||'Palette', colors:pal.map(p=>p.hex)}); save(); render(); }); };
+  document.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>FH.copy(D.saved[+b.dataset.cp].colors.join(' ')));
+  document.querySelectorAll('[data-sd]').forEach(b=>b.onclick=()=>{ D.saved.splice(+b.dataset.sd,1); save(); render(); }); }
+async function add(files){ files=[...files].filter(f=>f.type.startsWith('image/')); if(!files.length) return;
+  for(const f of files){ const src=await FH.fileToDataURL(f,1000,.82); if(D.mode==='one'){ D.still=src; break; } const px=await pixels(src); D.deck.push({src, colors:kmeans(px,5).sort((a,b)=>b.share-a.share).map(p=>hex(p.c))}); }
+  save(); analyse(); }
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ D.mode=b.dataset.m; save(); analyse(); });
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ D.pick=b.dataset.p; save(); analyse(); });
+$('k').value=D.k; $('k').oninput=()=>{ D.k=+$('k').value; $('kv').textContent=D.k; clearTimeout(window._kt); window._kt=setTimeout(()=>{ save(); analyse(); },120); };
+$('ptitle').value=D.title||''; $('ptitle').oninput=()=>{ D.title=$('ptitle').value; save(); };
+document.addEventListener('dragover',x=>x.preventDefault()); document.addEventListener('drop',x=>{ x.preventDefault(); add(x.dataTransfer.files); });
+document.addEventListener('paste',x=>{ const fs=[...(x.clipboardData?x.clipboardData.items:[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()); if(fs.length) add(fs); });
+$('dj').onclick=()=>FH.download((D.title||'palette').replace(/\s+/g,'-')+'.palette.json', JSON.stringify(D), 'application/json');
+$('oj').onchange=async x=>{ const f=x.target.files[0]; x.target.value=''; if(!f) return; try{ const d=JSON.parse(await f.text()); if(!('deck' in d)) throw 0; D=Object.assign(D,d); save(); analyse(); }catch(err){ FH.toast('That is not a palette file.'); } };
+$('b-print').onclick=()=>{ const h=`<h1>${e(D.title||FH.currentProject().name)} — Colour palette</h1>${D.mode==='one'&&D.still?`<img src="${D.still}" style="width:100%;margin:8px 0">`:''}<div style="display:flex;height:80px;margin:8px 0">${pal.map(p=>`<div style="flex:${p.share};background:${p.hex}"></div>`).join('')}</div><table><tr><th></th><th>HEX</th><th>RGB</th><th>Share</th></tr>${pal.map(p=>`<tr><td style="background:${p.hex};width:40px"></td><td>${p.hex}</td><td>${p.c.map(x=>Math.round(x)).join(', ')}</td><td>${(p.share*100).toFixed(1)}%</td></tr>`).join('')}</table>${D.deck.length?`<h2>Reference deck</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">${D.deck.map(s=>`<div><img src="${s.src}" style="width:100%"><div style="display:flex;height:12px">${(s.colors||[]).map(c=>`<div style="flex:1;background:${c}"></div>`).join('')}</div></div>`).join('')}</div>`:''}${D.saved.length?`<h2>Saved palettes</h2>${D.saved.map(s=>`<p style="margin:6px 0 2px"><b>${e(s.name)}</b> <span class="muted">${s.colors.join(' ')}</span></p><div style="display:flex;height:24px">${s.colors.map(c=>`<div style="flex:1;background:${c}"></div>`).join('')}</div>`).join('')}`:''}`; FH.previewSheet(h,'Colour palette'); };
+analyse();
+</script></body></html>

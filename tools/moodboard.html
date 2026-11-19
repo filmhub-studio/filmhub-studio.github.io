@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Mood Board</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.sub{display:flex;gap:12px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+.view{flex:1;min-height:0;overflow:auto}
+.addbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.addbar input[type=text]{flex:1;min-width:240px}
+.filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.board{columns:4 var(--tw,260px);column-gap:12px}.board.list{columns:1}
+.tile{break-inside:avoid;margin-bottom:12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative}
+.tile.drag{opacity:.4}.tile.over{box-shadow:0 0 0 2px var(--accent)}
+.tile img{width:100%;display:block;cursor:zoom-in}
+.board.list .tile{display:grid;grid-template-columns:200px 1fr}
+.tile .body{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.tile textarea{min-height:34px;height:40px;font-size:12.5px;background:transparent;border-color:transparent;padding:4px;box-shadow:none}
+.tile textarea:hover,.tile textarea:focus{border-color:var(--border2)}
+.dep{display:flex;flex-wrap:wrap;gap:4px}.dep span{font:500 10.5px var(--sans);padding:2px 8px;border-radius:10px;border:1px solid var(--border2);color:var(--muted);cursor:pointer}.dep span.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.tile .x{position:absolute;top:8px;right:8px;opacity:0}.tile:hover .x{opacity:1}
+.tile .lk{padding:16px 14px 4px;font-size:13.5px;font-weight:600;word-break:break-word}
+.tile.note .lk{font:600 17px var(--display);line-height:1.35}
+.tile .yt{aspect-ratio:16/9;width:100%;border:none;display:block}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:2px}
+.dropzone{border:1.5px dashed var(--border2);border-radius:16px;padding:44px 20px;text-align:center;color:var(--muted)}
+.dropzone.over{border-color:var(--accent);color:var(--accent)}
+.dropzone h3{color:var(--text);font-size:20px;margin:10px 0 6px}
+.bars{display:flex;gap:4px;justify-content:center;align-items:flex-end;height:40px}.bars i{width:14px;border-radius:4px}
+.aud{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+.aud .tile iframe,.tile iframe{width:100%;border:none;display:block;border-radius:6px}
+/* whiteboard */
+.wbw{display:grid;grid-template-columns:240px 52px 1fr;height:100%}
+.wbw.noref{grid-template-columns:0 52px 1fr}
+.refs{border-right:1px solid var(--border);overflow:auto;padding:12px;background:var(--surface)}
+.refs .thumbs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.refs .thumbs img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;cursor:grab;border:1px solid var(--border)}
+.tools{border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0}
+.tools button{width:36px;height:36px;border-radius:9px;border:1px solid transparent;background:none;color:var(--muted);font-size:15px}
+.tools button:hover{background:var(--surface2);color:var(--text)}.tools button.on{background:var(--accent);color:var(--on-accent)}
+.cv{position:relative;overflow:hidden;background:var(--bg)}
+.cv canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.palbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:6px 10px;z-index:3}
+.palbar i{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent}.palbar i.on{border-color:var(--text)}
+.palbar b{width:1px;height:16px;background:var(--border2)}
+.zoombar{position:absolute;right:12px;bottom:12px;display:flex;gap:4px;z-index:3}
+.cvtop{position:absolute;right:12px;top:12px;display:flex;gap:4px;z-index:3}
+.hintbar{position:absolute;left:12px;bottom:12px;font:11px var(--mono);color:var(--faint);z-index:3}
+</style></head><body>
+<div class="sub"><div class="seg" id="tabs"><button data-t="visual">Visual references <span class="pill" id="cv1"></span></button><button data-t="audio">Music &amp; sound <span class="pill" id="cv2"></span></button><button data-t="wb">Whiteboard</button></div><span class="hint" id="tabhint"></span></div>
+<div class="view" id="view"></div>
+<script src="common.js"></script><script src="canva.js"></script>
+<script>
+FH.header({kicker:'01 · Develop', name:'Mood Board', actions:'<input type="text" id="btitle" placeholder="Board title (used on exports)" style="width:220px"><button class="btn" id="b-json">Download .json</button><label class="btn">Open .json<input type="file" id="ojson" accept=".json" hidden></label><button class="btn" id="b-canva">🎨 Canva</button><button class="btn accent" id="b-print">Export PDF</button>',
+ help:'<p><b>Visual references:</b> drop stills, paste screenshots or links (YouTube, Vimeo, any image link) and tick which department each is for — camera, lighting, colour, wardrobe, hair & make-up, set.</p><p><b>Music & sound:</b> links to tracks and clips (Spotify, YouTube, SoundCloud…) or small audio files, tagged as score, source music, ambience, sound design, foley or dialogue.</p><p><b>Whiteboard:</b> arrange references freely, group them in frames, add sticky notes and text, and draw over them. Scroll to zoom, Space-drag or the hand tool to pan.</p>'});
+const e=FH.esc, $=id=>document.getElementById(id);
+const DEPTS=['Camera','Lighting','Colour palette','Wardrobe','Hair & MU','Set / locations','Sound','Direction'];
+const ATAGS=['Score','Source music','Ambience / atmos','Sound design / SFX','Foley','Dialogue / VO'];
+let D=Object.assign({tab:'visual', title:'', items:[], audio:[], wb:{els:[], view:{x:0,y:0,z:1}}, size:260, layout:'grid'}, FH.load('moodboard',{}));
+const MAP={DP:'Camera',Design:'Set / locations',Costume:'Wardrobe','Hair & MU':'Hair & MU',Director:'Direction',Colour:'Colour palette'}; D.items.forEach(i=>i.dep=(i.dep||[]).map(d=>MAP[d]||d));
+let filter='Everything', match='any', q='', afilter='Everything';
+function save(){ FH.save('moodboard', D); counts(); }
+function counts(){ $('cv1').textContent=D.items.length; $('cv2').textContent=D.audio.length; }
+$('btitle').value=D.title||''; $('btitle').oninput=()=>{ D.title=$('btitle').value; save(); };
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+function setTab(t){ D.tab=t; save(); document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); $('tabhint').textContent={visual:'Pick what each reference is for so the board can filter by department.',audio:'Links keep the project light. Uploads are stored in the project.',wb:'Arrange references freely, group them in frames, add notes and draw over them.'}[t]; ({visual,audio,wb})[t](); }
+/* ---------- video store (IndexedDB, stays on this device) ---------- */
+function idb(){ return new Promise((res,rej)=>{ const r=indexedDB.open('filmhub',1); r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function vPut(k,blob){ const db=await idb(); return new Promise((res,rej)=>{ const t=db.transaction('files','readwrite'); t.objectStore('files').put(blob,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+async function vGet(k){ const db=await idb(); return new Promise(res=>{ const r=db.transaction('files').objectStore('files').get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>res(null); }); }
+const vURL={}; async function vidSrc(id){ if(vURL[id]) return vURL[id]; const b=await vGet('mbvid:'+id); return b?(vURL[id]=URL.createObjectURL(b)):null; }
+function poster(file){ return new Promise(res=>{ const v=document.createElement('video'); v.muted=true; v.preload='auto'; const u=URL.createObjectURL(file); v.src=u; v.onloadeddata=()=>{ v.currentTime=Math.min(1,(v.duration||2)/3); }; v.onseeked=()=>{ const k=Math.min(1,900/v.videoWidth), c=document.createElement('canvas'); c.width=Math.round(v.videoWidth*k); c.height=Math.round(v.videoHeight*k); c.getContext('2d').drawImage(v,0,0,c.width,c.height); res({src:c.toDataURL('image/jpeg',.75), w:c.width, h:c.height, dur:v.duration}); URL.revokeObjectURL(u); }; v.onerror=()=>res(null); setTimeout(()=>res(null),8000); }); }
+async function addVideos(vids){ for(const f of vids){ if(f.size>400e6){ FH.toast(f.name+' is over 400 MB — trim it or add a YouTube/Vimeo link instead.'); continue; } const id=FH.uid(); try{ await vPut('mbvid:'+id,f); }catch(err){ FH.toast('Could not store '+f.name); continue; } const pv=await poster(f)||{}; const im=pv.src?await new Promise(r=>{ const i=new Image(); i.onload=()=>r(i); i.src=pv.src; }):null; D.items.unshift({id, type:'video', name:f.name, src:pv.src||'', w:pv.w, h:pv.h, dur:pv.dur, note:'', dep:filt(), colors:im?palette(im):null}); }
+  save(); setTab(D.tab); if(vids.length) FH.toast('Videos are kept on this device (too big for cloud sync). Teammates see the poster frame and your notes.'); }
+/* ---------- visual ---------- */
+function ytId(u){ const m=String(u).match(/(?:youtu\.be\/|v=|shorts\/)([\w-]{11})/); return m&&m[1]; }
+function vimeoId(u){ const m=String(u).match(/vimeo\.com\/(\d+)/); return m&&m[1]; }
+function visual(){ const items=D.items.map((it,i)=>[it,i]).filter(([it])=>{ const d=it.dep||[]; if(filter==='Untagged') return !d.length; if(filter!=='Everything'&&!d.includes(filter)) return false; if(q&&!(`${it.note||''} ${it.title||''} ${it.text||''} ${it.url||''}`.toLowerCase().includes(q))) return false; return true; });
+  $('view').innerHTML=`<div class="wrap"><div class="addbar"><label class="btn accent">⬆ Upload images / videos<input type="file" id="f" accept="image/*,video/*" multiple hidden></label><label class="btn">📎 Attach file<input type="file" id="fa" multiple hidden></label><input type="text" id="url" placeholder="Paste an image link, a YouTube or Vimeo clip, or any web page"><button class="btn" id="addl">Add link</button><button class="btn ghost" id="addn">+ Note</button><span class="hint">Or drop / paste images anywhere</span></div>
+  <div class="filters"><span class="label" style="margin:0">Show</span>${['Everything',...DEPTS,'Untagged'].map(d=>`<span class="chip ${d===filter?'on':''}" data-f="${e(d)}">${e(d)} ${d==='Everything'?D.items.length:d==='Untagged'?D.items.filter(i=>!(i.dep||[]).length).length:D.items.filter(i=>(i.dep||[]).includes(d)).length}</span>`).join('')}<span class="spacer"></span><input type="search" id="q" placeholder="Search notes…" value="${e(q)}" style="width:180px"></div>
+  <div class="filters"><div class="seg"><button data-l="grid" class="${D.layout==='grid'?'on':''}">Grid</button><button data-l="list" class="${D.layout==='list'?'on':''}">List</button></div><span class="hint">Size</span><input type="range" id="sz" min="160" max="460" value="${D.size}" style="width:120px"></div>
+  ${D.items.length?`<div class="board ${D.layout==='list'?'list':''}" id="board" style="--tw:${D.size}px">${items.map(([it,i])=>tile(it,i)).join('')||'<div class="empty">Nothing matches.</div>'}</div>`:`<div class="dropzone" id="dz"><div class="bars">${['#b39dff','#7aa7ff','#c24a52','#34d3b6','#ffd166','#5ee0a0'].map((c,k)=>`<i style="background:${c};height:${[24,34,40,28,36,22][k]}px"></i>`).join('')}</div><h3>Start your mood board</h3><p class="hint">Drop stills here, paste them from your clipboard, or add links to images, clips and web pages. Then tick what each one is a reference for: camera, lighting, colour palette, wardrobe, hair and make-up, or sets and locations.</p></div>`}</div>`;
+  $('f').onchange=x=>{ addFiles(x.target.files); x.target.value=''; }; $('fa').onchange=x=>{ addFiles(x.target.files); x.target.value=''; };
+  $('addl').onclick=()=>addLink($('url').value); $('url').onkeydown=ev=>{ if(ev.key==='Enter') addLink($('url').value); };
+  $('addn').onclick=()=>FH.prompt('Add a note','A word, a feeling, a rule for the look','',t=>{ if(!t) return; D.items.unshift({id:FH.uid(), type:'note', text:t, dep:filt()}); save(); visual(); },'Add');
+  document.querySelectorAll('[data-f]').forEach(c=>c.onclick=()=>{ filter=c.dataset.f; visual(); });
+  document.querySelectorAll('[data-l]').forEach(c=>c.onclick=()=>{ D.layout=c.dataset.l; save(); visual(); });
+  $('q').oninput=ev=>{ q=ev.target.value.toLowerCase(); clearTimeout(window._qt); window._qt=setTimeout(()=>{ visual(); const i=$('q'); i.focus(); i.setSelectionRange(i.value.length,i.value.length); },300); };
+  $('sz').oninput=ev=>{ D.size=+ev.target.value; const b=$('board'); if(b) b.style.setProperty('--tw',D.size+'px'); save(); };
+  bindTiles(); }
+const filt=()=>DEPTS.includes(filter)?[filter]:[];
+function tile(it,i){ const yt=it.url&&ytId(it.url), vm=it.url&&vimeoId(it.url);
+  const media=it.type==='link'?(!yt&&!vm&&/spotify|soundcloud|music\.apple|deezer|mixcloud|bandcamp|\.(mp3|wav|m4a|ogg|mp4|webm|mov)(\?|$)/i.test(it.url)?`<div style="padding:10px 12px 0">${embed(it.url)}</div>`:'')+(yt?`<iframe class="yt" src="https://www.youtube.com/embed/${yt}" allowfullscreen></iframe>`:vm?`<iframe class="yt" src="https://player.vimeo.com/video/${vm}" allowfullscreen></iframe>`:/\.(png|jpe?g|gif|webp)(\?|$)/i.test(it.url)?`<img src="${e(it.url)}" referrerpolicy="no-referrer">`:'')+`<div class="lk">🔗 <a href="${e(it.url)}" target="_blank" rel="noopener">${e(it.title||it.url)}</a></div>`:it.type==='note'?`<div class="lk">${e(it.text||'')}</div>`:it.type==='file'?`<div class="lk" style="display:flex;gap:10px;align-items:center"><span style="font-size:30px">${/pdf/.test(it.mime||'')?'📕':/sheet|excel|csv/.test(it.mime||'')?'📊':/word|document/.test(it.mime||'')?'📄':'📎'}</span><span>${e(it.name)}<br><span class="hint">${(it.size/1e6).toFixed(1)} MB</span></span></div><div style="display:flex;gap:6px;padding:8px 14px 0"><button class="btn sm accent" data-open="${it.id}">Open</button><button class="btn sm" data-dl="${it.id}">Download</button></div>`:it.type==='video'?`<video data-vid="${it.id}" controls playsinline preload="metadata" poster="${it.src||''}" style="width:100%;display:block;background:#000"></video><div class="hint" style="padding:4px 12px 0">🎬 ${e(it.name||'video')}</div>`:`<img src="${it.src}" alt="">`;
+  return `<div class="tile ${it.type||'img'}" draggable="true" data-i="${i}"><div>${media}${it.colors?`<div style="padding:6px 12px 0">${it.colors.map(c=>`<span class="sw" style="background:${c}" title="${c}"></span>`).join('')}</div>`:''}</div>
+  <div class="body"><textarea data-n="${i}" placeholder="Why this? What to take from it…">${e(it.note||'')}</textarea><div class="dep">${DEPTS.map(d=>`<span data-d="${e(d)}" data-i="${i}" class="${(it.dep||[]).includes(d)?'on':''}">${e(d)}</span>`).join('')}</div></div><button class="ib del x" data-x="${i}">✕</button></div>`; }
+let dragI=null;
+function bindTiles(){ const b=$('board'); if(!b){ return; }
+  b.querySelectorAll('[data-open],[data-dl]').forEach(bt=>bt.onclick=async()=>{ const id=bt.dataset.open||bt.dataset.dl, it=D.items.find(x=>x.id===id), bl=await vGet('mbfile:'+id); if(!bl){ FH.toast('That file is on another device.'); return; } const u=URL.createObjectURL(bl); if(bt.dataset.open){ const w=window.open(u,'_blank'); if(!w) FH.modal(`<h3>${e(it.name)}</h3><iframe src="${u}" style="width:100%;height:70vh;border:0;background:#fff;border-radius:8px"></iframe><div class="acts"><a class="btn" href="${u}" download="${e(it.name)}">Download</a><button class="btn accent" onclick="FH.close()">Close</button></div>`,true); } else { const a=document.createElement('a'); a.href=u; a.download=it.name; a.click(); } });
+  b.querySelectorAll('video[data-vid]').forEach(async v=>{ const u=await vidSrc(v.dataset.vid); if(u) v.src=u; else v.insertAdjacentHTML('afterend','<div class="hint" style="padding:4px 12px">Video file is on another device — only the poster frame is here.</div>'); });
+  b.querySelectorAll('[data-n]').forEach(t=>t.oninput=()=>{ D.items[+t.dataset.n].note=t.value; save(); });
+  b.querySelectorAll('[data-d]').forEach(s=>s.onclick=()=>{ const it=D.items[+s.dataset.i]; it.dep=it.dep||[]; it.dep.includes(s.dataset.d)?it.dep=it.dep.filter(x=>x!==s.dataset.d):it.dep.push(s.dataset.d); save(); s.classList.toggle('on'); });
+  b.querySelectorAll('[data-x]').forEach(x=>x.onclick=()=>{ const id=D.items[+x.dataset.x].id; D.items.splice(+x.dataset.x,1); D.wb.els=D.wb.els.filter(el=>el.ref!==id); save(); visual(); });
+  b.querySelectorAll('.tile.img img, .tile:not(.link):not(.note):not(.video) img').forEach(im=>im.onclick=()=>{ const it=D.items[+im.closest('.tile').dataset.i]; FH.modal(`<img src="${im.src}" style="width:100%;border-radius:8px"><div class="acts"><button class="btn" id="dro">✎ Draw on this image</button><button class="btn accent" onclick="FH.close()">Close</button></div>`,true); $('dro').onclick=()=>{ FH.close(); drawOn(it); }; });
+  b.querySelectorAll('.tile').forEach(t=>{ t.ondragstart=ev=>{ dragI=+t.dataset.i; t.classList.add('drag'); ev.dataTransfer.setData('text/plain','tile'); }; t.ondragend=()=>{ t.classList.remove('drag'); dragI=null; };
+    t.ondragover=ev=>{ if(dragI==null) return; ev.preventDefault(); t.classList.add('over'); }; t.ondragleave=()=>t.classList.remove('over');
+    t.ondrop=ev=>{ t.classList.remove('over'); if(dragI==null) return; ev.preventDefault(); ev.stopPropagation(); const [m]=D.items.splice(dragI,1); D.items.splice(+t.dataset.i,0,m); dragI=null; save(); visual(); }; });
+  b.querySelectorAll('textarea').forEach(t=>{ t.onmousedown=()=>t.closest('.tile').draggable=false; t.onblur=()=>t.closest('.tile').draggable=true; }); }
+function palette(img){ const c=document.createElement('canvas'); c.width=c.height=40; const x=c.getContext('2d'); x.drawImage(img,0,0,40,40); const d=x.getImageData(0,0,40,40).data, bk={};
+  for(let i=0;i<d.length;i+=4){ const k=[d[i]>>5,d[i+1]>>5,d[i+2]>>5].join(','); bk[k]=(bk[k]||0)+1; }
+  return Object.entries(bk).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k])=>'#'+k.split(',').map(v=>((+v<<5)+16).toString(16).padStart(2,'0')).join('')); }
+async function addFiles(files, toWb){ files=[...files]; const vids=files.filter(f=>f.type.startsWith('video/')); if(vids.length) addVideos(vids); const imgs=files.filter(f=>f.type.startsWith('image/')), auds=files.filter(f=>f.type.startsWith('audio/')), other=files.filter(f=>!/^(image|video|audio)\//.test(f.type));
+  for(const f of other){ const id=FH.uid(); try{ await vPut('mbfile:'+id,f); D.items.unshift({id, type:'file', name:f.name, size:f.size, mime:f.type, note:'', dep:filt()}); }catch(err){ FH.toast('Could not store '+f.name); } }
+  for(const f of imgs){ try{ const src=(f.type==='image/gif'&&f.size<6e6)?await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); }):await FH.fileToDataURL(f,1100,.8); const im=new Image(); await new Promise(r=>{ im.onload=r; im.src=src; }); const it={id:FH.uid(), src, note:'', dep:filt(), colors:palette(im), w:im.width, h:im.height}; D.items.unshift(it); if(toWb) placeRef(it,toWb.x,toWb.y); toWb&&(toWb.x+=30,toWb.y+=30); }catch(err){} }
+  for(const f of auds) await addAudioFile(f);
+  if(imgs.length) FH.toast(`Added ${imgs.length} still${imgs.length>1?'s':''}${toWb?' to the whiteboard and Visual references':''}.`);
+  save(); setTab(D.tab); }
+function addLink(u){ u=(u||'').trim(); if(!/^https?:\/\//i.test(u)){ FH.toast('Paste a full link starting with https://'); return; } D.items.unshift({id:FH.uid(), type:'link', url:u, title:'', dep:filt()}); save(); visual(); FH.toast('Link added. Click its title later to open it.'); }
+/* ---------- audio ---------- */
+function embed(u){ let m; if((m=u.match(/open\.spotify\.com\/(track|album|playlist|episode)\/(\w+)/))) return `<iframe src="https://open.spotify.com/embed/${m[1]}/${m[2]}" height="${m[1]==='track'?80:152}" allow="encrypted-media"></iframe>`;
+  if(ytId(u)) return `<iframe src="https://www.youtube.com/embed/${ytId(u)}" style="aspect-ratio:16/9" allowfullscreen></iframe>`; if(vimeoId(u)) return `<iframe src="https://player.vimeo.com/video/${vimeoId(u)}" style="aspect-ratio:16/9"></iframe>`;
+  if((m=u.match(/music\.apple\.com\/(.+)/))) return `<iframe src="https://embed.music.apple.com/${m[1]}" height="${/[?&]i=/.test(u)?175:300}" allow="autoplay *; encrypted-media *"></iframe>`;
+  if((m=u.match(/deezer\.com\/(?:\w+\/)?(track|album|playlist)\/(\d+)/))) return `<iframe src="https://widget.deezer.com/widget/dark/${m[1]}/${m[2]}" height="${m[1]==='track'?150:300}" allow="encrypted-media"></iframe>`;
+  if((m=u.match(/mixcloud\.com(\/[^?#]+)/))) return `<iframe height="120" src="https://www.mixcloud.com/widget/iframe/?hide_cover=1&feed=${encodeURIComponent(m[1])}"></iframe>`;
+  if((m=u.match(/bandcamp\.com\/EmbeddedPlayer\/(.+)/))) return `<iframe src="https://bandcamp.com/EmbeddedPlayer/${m[1]}" height="120"></iframe>`;
+  if(/\.(mp3|wav|m4a|ogg|aac|flac)(\?|$)/i.test(u)) return `<audio controls src="${e(u)}" style="width:100%"></audio>`;
+  if(/\.(mp4|webm|mov)(\?|$)/i.test(u)) return `<video controls src="${e(u)}" style="width:100%"></video>`;
+  if(/soundcloud\.com/.test(u)) return `<iframe height="120" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(u)}&visual=false"></iframe>`; return `<div class="hint">No built-in player for this site. ${/bandcamp/.test(u)?'On Bandcamp use Share → Embed and paste the “EmbeddedPlayer” link for a player here. ':''}<a href="${e(u)}" target="_blank" rel="noopener">Open it ↗</a></div>`; }
+async function addAudioFile(f){ if(f.size>1500000){ const id=FH.uid(); await vPut('mbaud:'+id,f); D.audio.unshift({id, type:'file', big:true, title:f.name, tags:ATAGS.includes(afilter)?[afilter]:[], note:''}); return; } const src=await new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(f); }); D.audio.unshift({id:FH.uid(), type:'file', title:f.name, src, tags:ATAGS.includes(afilter)?[afilter]:[], note:''}); }
+function audio(){ const list=D.audio.map((a,i)=>[a,i]).filter(([a])=>afilter==='Everything'||(afilter==='Untagged'?!(a.tags||[]).length:(a.tags||[]).includes(afilter)));
+  $('view').innerHTML=`<div class="wrap"><div class="addbar"><input type="text" id="aurl" placeholder="Paste a Spotify, YouTube, SoundCloud, Apple Music, Bandcamp or Vimeo link"><button class="btn accent" id="aadd">Add link</button><label class="btn">⬆ Upload audio<input type="file" id="af" accept="audio/*" multiple hidden></label><span class="hint">Links keep your project light. Uploads are stored in the project.</span></div>
+  <div class="filters"><span class="label" style="margin:0">Show</span>${['Everything',...ATAGS,'Untagged'].map(t=>`<span class="chip ${t===afilter?'on':''}" data-af="${e(t)}">${e(t)} ${t==='Everything'?D.audio.length:t==='Untagged'?D.audio.filter(a=>!(a.tags||[]).length).length:D.audio.filter(a=>(a.tags||[]).includes(t)).length}</span>`).join('')}</div>
+  ${D.audio.length?`<div class="aud">${list.map(([a,i])=>`<div class="tile"><div style="padding:12px 14px 0"><b>${a.type==='file'?'🎵':'🔗'} ${a.type==='link'?`<a href="${e(a.url)}" target="_blank" rel="noopener">${e(a.title||a.url)}</a>`:e(a.title)}</b></div>${a.type==='file'?`<audio controls ${a.big?`data-aud="${a.id}"`:`src="${a.src}"`} style="width:calc(100% - 24px);margin:10px 12px 0"></audio>`:`<div style="padding:10px 12px 0">${embed(a.url)}</div>`}<div class="body"><textarea data-an="${i}" placeholder="Where would it go? What does it do to the scene?">${e(a.note||'')}</textarea><div class="dep">${ATAGS.map(t=>`<span data-at="${e(t)}" data-i="${i}" class="${(a.tags||[]).includes(t)?'on':''}">${e(t)}</span>`).join('')}</div></div><button class="ib del x" data-ax="${i}">✕</button></div>`).join('')||'<div class="empty">Nothing matches.</div>'}</div>`:`<div class="dropzone"><div class="bars">${[18,30,40,26,34,20,28].map((h,k)=>`<i style="background:${['#c24a52','#ffd166','#34d3b6','#7aa7ff','#b39dff','#5ee0a0','#d8666d'][k]};height:${h}px"></i>`).join('')}</div><h3>Build the sound of the film</h3><p class="hint">Paste links to tracks, playlists, clips and sound design references from Spotify, YouTube, SoundCloud, Apple Music, Bandcamp or Vimeo, or upload your own audio. Tick whether each is score, source music, ambience, sound design, foley or dialogue.</p></div>`}</div>`;
+  $('aadd').onclick=()=>{ const u=$('aurl').value.trim(); if(!/^https?:\/\//.test(u)){ FH.toast('Paste a full link.'); return; } D.audio.unshift({id:FH.uid(), type:'link', url:u, title:'', tags:ATAGS.includes(afilter)?[afilter]:[], note:''}); save(); audio(); };
+  document.querySelectorAll('audio[data-aud]').forEach(async el=>{ const b=await vGet('mbaud:'+el.dataset.aud); if(b) el.src=URL.createObjectURL(b); else el.insertAdjacentHTML('afterend','<div class="hint" style="padding:4px 12px">This audio file is on another device.</div>'); });
+  $('af').onchange=async x=>{ for(const f of x.target.files) await addAudioFile(f); x.target.value=''; save(); audio(); };
+  document.querySelectorAll('[data-af]').forEach(c=>c.onclick=()=>{ afilter=c.dataset.af; audio(); });
+  document.querySelectorAll('[data-an]').forEach(t=>t.oninput=()=>{ D.audio[+t.dataset.an].note=t.value; save(); });
+  document.querySelectorAll('[data-at]').forEach(s=>s.onclick=()=>{ const a=D.audio[+s.dataset.i]; a.tags=a.tags||[]; a.tags.includes(s.dataset.at)?a.tags=a.tags.filter(x=>x!==s.dataset.at):a.tags.push(s.dataset.at); save(); s.classList.toggle('on'); });
+  document.querySelectorAll('[data-ax]').forEach(b=>b.onclick=()=>{ D.audio.splice(+b.dataset.ax,1); save(); audio(); }); }
+/* ---------- whiteboard ---------- */
+const COLS=['#ff5d6c','#d8666d','#ffd166','#5ee0a0','#34d3b6','#7aa7ff','#b39dff','#ff7ab8','#ffffff','#111111'];
+let W={tool:'select', color:'#ff5d6c', width:3, sel:null, drag:null, undo:[], refOpen:true}, cv, cx, imgCache={};
+function wb(){ const V=D.wb.view;
+  $('view').innerHTML=`<div class="wbw ${W.refOpen?'':'noref'}" id="wbw"><aside class="refs"><div style="display:flex;align-items:center"><span class="label" style="margin:0">References ${D.items.filter(i=>i.src).length}</span><span class="spacer"></span><button class="ib" id="rclose" title="Hide">‹</button></div><div class="chips" style="margin-top:8px">${['Everything',...DEPTS].map(d=>`<span class="chip ${d===filter?'on':''}" data-f="${e(d)}" style="font-size:10.5px;padding:3px 8px">${e(d)}</span>`).join('')}</div><div class="thumbs">${D.items.filter(i=>i.src&&(filter==='Everything'||(i.dep||[]).includes(filter))).map(i=>`<img src="${i.src}" draggable="true" data-ref="${i.id}" title="Drag onto the board">`).join('')}</div><div style="display:flex;gap:6px;margin-top:12px"><label class="btn sm">⬆ Upload<input type="file" id="wf" accept="image/*" multiple hidden></label><button class="btn sm" id="placeall">Place all shown</button></div></aside>
+  <div class="tools">${[['select','↖','Select & move (V)'],['hand','✋','Pan (H / Space)'],['frame','⬚','Frame (F)'],['sticky','▤','Sticky note (N)'],['text','T','Text (T)'],['pen','✎','Pen (P)'],['arrow','↗','Arrow (A)'],['erase','⌫','Delete selected (Del)']].map(([k,i,t])=>`<button data-tool="${k}" class="${W.tool===k?'on':''}" title="${t}">${i}</button>`).join('')}<span style="flex:1"></span><button id="wundo" title="Undo (Ctrl/Cmd+Z)">↶</button>${W.refOpen?'':'<button id="ropen" title="Show references">›</button>'}</div>
+  <div class="cv" id="cvw"><canvas id="wbc"></canvas><div class="palbar" id="pal">${COLS.map(c=>`<i data-c="${c}" style="background:${c}" class="${c===W.color?'on':''}"></i>`).join('')}<label title="Any colour" style="display:inline-flex;width:24px;height:24px;border-radius:50%;overflow:hidden;border:2px solid var(--border2);cursor:pointer;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"><input type="color" id="anycol" value="${W.color}" style="opacity:0;width:100%;height:100%;cursor:pointer"></label><b></b>${[2,4,8].map(w=>`<button class="ib" data-w="${w}" style="${W.width===w?'border-color:var(--accent)':''}"><span style="display:block;width:${w+2}px;height:${w+2}px;border-radius:50%;background:var(--text)"></span></button>`).join('')}</div>
+  <div class="cvtop"><button class="btn sm" id="wbpng">⬇ PNG</button></div><div class="zoombar"><button class="btn sm" id="zo">−</button><span class="pill" id="zv" style="align-self:center">${Math.round(V.z*100)}%</span><button class="btn sm" id="zi">＋</button><button class="btn sm" id="zf">Fit</button></div><div class="hintbar">Scroll to zoom · Space-drag to pan · double-click a note to edit</div></div></div>`;
+  cv=$('wbc'); cx=cv.getContext('2d'); size(); new ResizeObserver(size).observe($('cvw'));
+  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{ if(b.dataset.tool==='erase'){ delSel(); return; } W.tool=b.dataset.tool; document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x===b)); });
+  document.querySelectorAll('[data-c]').forEach(i=>i.onclick=()=>{ W.color=i.dataset.c; const s=sel(); if(s&&s.type!=='ref'){ push(); s.color=W.color; save(); draw(); } document.querySelectorAll('[data-c]').forEach(x=>x.classList.toggle('on',x===i)); });
+  document.querySelectorAll('[data-w]').forEach(b=>b.onclick=()=>{ W.width=+b.dataset.w; wb(); });
+  $('anycol').oninput=ev=>{ W.color=ev.target.value; const s=sel(); if(s&&s.type!=='ref'){ s.color=W.color; save(); draw(); } document.querySelectorAll('[data-c]').forEach(x=>x.classList.remove('on')); }; $('anycol').onchange=()=>{ const s=sel(); if(s&&s.type!=='ref') push(); };
+  document.querySelectorAll('.refs [data-f]').forEach(c=>c.onclick=()=>{ filter=c.dataset.f; wb(); });
+  $('rclose').onclick=()=>{ W.refOpen=false; wb(); }; const ro=$('ropen'); if(ro) ro.onclick=()=>{ W.refOpen=true; wb(); };
+  $('wf').onchange=x=>{ const r=cv.getBoundingClientRect(); addFiles(x.target.files, world(r.left+r.width/2,r.top+r.height/2)); x.target.value=''; };
+  $('placeall').onclick=()=>{ push(); const shown=D.items.filter(i=>i.src&&(filter==='Everything'||(i.dep||[]).includes(filter))&&!D.wb.els.some(el=>el.ref===i.id)); const r=cv.getBoundingClientRect(); const c=world(r.left+60,r.top+60); shown.forEach((it,k)=>placeRef(it, c.x+(k%4)*300, c.y+Math.floor(k/4)*240)); save(); draw(); FH.toast(shown.length?`Placed ${shown.length} references.`:'They are all on the board already.'); };
+  document.querySelectorAll('[data-ref]').forEach(im=>im.ondragstart=ev=>ev.dataTransfer.setData('fh/ref',im.dataset.ref));
+  const cw=$('cvw'); cw.ondragover=ev=>ev.preventDefault(); cw.ondrop=ev=>{ ev.preventDefault(); ev.stopPropagation(); const id=ev.dataTransfer.getData('fh/ref'), p=world(ev.clientX,ev.clientY); if(id){ push(); placeRef(D.items.find(i=>i.id===id),p.x,p.y); save(); draw(); } else if(ev.dataTransfer.files.length) addFiles(ev.dataTransfer.files,p); };
+  $('wundo').onclick=undo; $('zi').onclick=()=>zoomAt(1.2); $('zo').onclick=()=>zoomAt(1/1.2); $('zf').onclick=fit; $('wbpng').onclick=png;
+  cv.onpointerdown=down; cv.onpointermove=move; cv.onpointerup=cv.onpointercancel=up; cv.ondblclick=dbl;
+  cv.onwheel=ev=>{ ev.preventDefault(); if(ev.ctrlKey||ev.metaKey||Math.abs(ev.deltaY)>Math.abs(ev.deltaX)){ const r=cv.getBoundingClientRect(); zoomAt(ev.deltaY<0?1.1:1/1.1, ev.clientX-r.left, ev.clientY-r.top); } else { D.wb.view.x-=ev.deltaX; draw(); } };
+  draw(); }
+function size(){ if(!cv) return; const r=cv.getBoundingClientRect(), d=devicePixelRatio||1; cv.width=r.width*d; cv.height=r.height*d; draw(); }
+const sel=()=>D.wb.els.find(x=>x.id===W.sel);
+function world(clientX,clientY){ const r=cv.getBoundingClientRect(), V=D.wb.view; return {x:(clientX-r.left-V.x)/V.z, y:(clientY-r.top-V.y)/V.z}; }
+function zoomAt(f,sx,sy){ const V=D.wb.view, r=cv.getBoundingClientRect(); sx=sx??r.width/2; sy=sy??r.height/2; const nz=Math.max(.1,Math.min(5,V.z*f)); V.x=sx-(sx-V.x)*nz/V.z; V.y=sy-(sy-V.y)*nz/V.z; V.z=nz; $('zv').textContent=Math.round(nz*100)+'%'; save(); draw(); }
+function bounds(){ const B=[Infinity,Infinity,-Infinity,-Infinity]; D.wb.els.forEach(el=>{ const pts=el.type==='path'?el.pts:el.type==='arrow'?[[el.x1,el.y1],[el.x2,el.y2]]:[[el.x,el.y],[el.x+(el.w||200),el.y+(el.h||40)]]; pts.forEach(([x,y])=>{ B[0]=Math.min(B[0],x); B[1]=Math.min(B[1],y); B[2]=Math.max(B[2],x); B[3]=Math.max(B[3],y); }); }); return B; }
+function fit(){ if(!D.wb.els.length) return; const [a,b,c,d]=bounds(), r=cv.getBoundingClientRect(), z=Math.min(2,Math.min(r.width/(c-a+120), r.height/(d-b+120))); Object.assign(D.wb.view,{z, x:r.width/2-(a+c)/2*z, y:r.height/2-(b+d)/2*z}); $('zv').textContent=Math.round(z*100)+'%'; save(); draw(); }
+function drawOn(it){ if(!it) return; D.tab='wb'; save(); setTab('wb'); const r=cv.getBoundingClientRect(), p=world(r.left+r.width/2, r.top+r.height/2); push(); const w=Math.min(720,(r.width-80)/D.wb.view.z), h=it.w?w*it.h/it.w:w*.56; const el={id:FH.uid(), type:'ref', ref:it.id, x:p.x-w/2, y:p.y-h/2, w, h}; D.wb.els.push(el); W.tool='pen'; wbTools(); save(); draw(); FH.toast('Image placed on the whiteboard with the pen ready. Pick any colour on the bar below and draw over it.'); }
+function placeRef(it,x,y){ if(!it) return; const w=260, h=it.w?w*it.h/it.w:180; D.wb.els.push({id:FH.uid(), type:'ref', ref:it.id, x:x-w/2, y:y-h/2, w, h}); }
+function push(){ W.undo.push(JSON.stringify(D.wb.els)); if(W.undo.length>60) W.undo.shift(); }
+function undo(){ const s=W.undo.pop(); if(!s) return; D.wb.els=JSON.parse(s); W.sel=null; save(); draw(); }
+function delSel(){ if(!W.sel) return; push(); D.wb.els=D.wb.els.filter(x=>x.id!==W.sel); W.sel=null; save(); draw(); }
+function hit(p){ for(let i=D.wb.els.length-1;i>=0;i--){ const el=D.wb.els[i];
+  if(el.type==='path'){ if(el.pts.some(([x,y])=>Math.hypot(x-p.x,y-p.y)<8/D.wb.view.z+el.width)) return el; continue; }
+  if(el.type==='arrow'){ const dx=el.x2-el.x1, dy=el.y2-el.y1, t=Math.max(0,Math.min(1,((p.x-el.x1)*dx+(p.y-el.y1)*dy)/(dx*dx+dy*dy||1))); if(Math.hypot(el.x1+t*dx-p.x, el.y1+t*dy-p.y)<10/D.wb.view.z) return el; continue; }
+  const w=el.w||textW(el), h=el.h||(el.size||22)*1.3; if(el.type==='frame'){ const edge=p.x>=el.x&&p.x<=el.x+w&&p.y>=el.y-24&&p.y<=el.y+h&&(p.y<el.y+4||p.x<el.x+8||p.x>el.x+w-8||p.y>el.y+h-8); if(edge) return el; continue; }
+  if(p.x>=el.x&&p.x<=el.x+w&&p.y>=el.y&&p.y<=el.y+h) return el; } return null; }
+function textW(el){ cx.font=fontOf(el); return Math.max(...String(el.text||'Text').split('\n').map(l=>cx.measureText(l).width))+8; }
+function corner(el,p){ if(!el||['path','arrow','text'].includes(el.type)) return false; const z=D.wb.view.z; return Math.hypot(p.x-(el.x+el.w), p.y-(el.y+el.h))<12/z; }
+let space=false; document.addEventListener('keydown',ev=>{ if(D.tab!=='wb'||['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return; if(ev.key===' '){ space=true; ev.preventDefault(); }
+  if((ev.key==='Delete'||ev.key==='Backspace')&&W.sel){ ev.preventDefault(); delSel(); } if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='z'){ ev.preventDefault(); undo(); }
+  const k={v:'select',h:'hand',f:'frame',n:'sticky',t:'text',p:'pen',a:'arrow'}[ev.key.toLowerCase()]; if(k&&!ev.metaKey&&!ev.ctrlKey){ W.tool=k; document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x.dataset.tool===k)); } });
+document.addEventListener('keyup',ev=>{ if(ev.key===' ') space=false; });
+function down(ev){ cv.setPointerCapture(ev.pointerId); const p=world(ev.clientX,ev.clientY), t=space?'hand':W.tool;
+  if(t==='hand'||ev.button===1){ W.drag={pan:true, sx:ev.clientX, sy:ev.clientY, vx:D.wb.view.x, vy:D.wb.view.y}; return; }
+  if(t==='select'){ const s=sel(); if(corner(s,p)){ push(); W.drag={resize:s, ar:s.type==='ref'?s.h/s.w:0}; return; } const h=hit(p); W.sel=h?h.id:null; if(h){ push(); W.drag={move:h, px:p.x, py:p.y, o:JSON.parse(JSON.stringify(h)), kids:h.type==='frame'?D.wb.els.filter(el=>el!==h&&el.x>=h.x&&el.y>=h.y&&el.x<=h.x+h.w&&el.y<=h.y+h.h).map(k=>[k,JSON.parse(JSON.stringify(k))]):[]}; } else W.drag={pan:true, sx:ev.clientX, sy:ev.clientY, vx:D.wb.view.x, vy:D.wb.view.y}; draw(); return; }
+  push();
+  if(t==='pen'){ const el={id:FH.uid(), type:'path', pts:[[p.x,p.y]], color:W.color, width:W.width}; D.wb.els.push(el); W.drag={pen:el}; }
+  else if(t==='arrow'){ const el={id:FH.uid(), type:'arrow', x1:p.x,y1:p.y,x2:p.x,y2:p.y, color:W.color, width:W.width}; D.wb.els.push(el); W.drag={arrow:el}; }
+  else if(t==='frame'){ const el={id:FH.uid(), type:'frame', x:p.x,y:p.y,w:1,h:1, title:'Frame '+(D.wb.els.filter(x=>x.type==='frame').length+1), color:W.color}; D.wb.els.unshift(el); W.drag={box:el, ox:p.x, oy:p.y}; }
+  else if(t==='sticky'){ const el={id:FH.uid(), type:'sticky', x:p.x-80,y:p.y-60,w:170,h:130, text:'', color:['#ffffff','#111111'].includes(W.color)?'#ffd166':W.color}; D.wb.els.push(el); W.sel=el.id; save(); draw(); setTimeout(()=>editText(el),30); W.tool='select'; wbTools(); }
+  else if(t==='text'){ const el={id:FH.uid(), type:'text', x:p.x,y:p.y, text:'', size:24, color:W.color==='#111111'&&document.documentElement.dataset.theme!=='light'?'#ffffff':W.color}; D.wb.els.push(el); W.sel=el.id; draw(); setTimeout(()=>editText(el),30); W.tool='select'; wbTools(); }
+  draw(); }
+function wbTools(){ document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x.dataset.tool===W.tool)); }
+function move(ev){ const d=W.drag; if(!d) return; const p=world(ev.clientX,ev.clientY);
+  if(d.pan){ D.wb.view.x=d.vx+ev.clientX-d.sx; D.wb.view.y=d.vy+ev.clientY-d.sy; }
+  else if(d.pen) d.pen.pts.push([Math.round(p.x),Math.round(p.y)]);
+  else if(d.arrow){ d.arrow.x2=p.x; d.arrow.y2=p.y; }
+  else if(d.box){ d.box.x=Math.min(p.x,d.ox); d.box.y=Math.min(p.y,d.oy); d.box.w=Math.abs(p.x-d.ox); d.box.h=Math.abs(p.y-d.oy); }
+  else if(d.resize){ const el=d.resize; el.w=Math.max(40,p.x-el.x); el.h=d.ar?el.w*d.ar:Math.max(30,p.y-el.y); }
+  else if(d.move){ const dx=p.x-d.px, dy=p.y-d.py, sh=(el,o)=>{ if(el.type==='path') el.pts=o.pts.map(([x,y])=>[x+dx,y+dy]); else if(el.type==='arrow'){ el.x1=o.x1+dx; el.y1=o.y1+dy; el.x2=o.x2+dx; el.y2=o.y2+dy; } else { el.x=o.x+dx; el.y=o.y+dy; } }; sh(d.move,d.o); d.kids.forEach(([k,o])=>sh(k,o)); }
+  draw(); }
+function up(){ const d=W.drag; W.drag=null; if(!d) return; if(d.box&&d.box.w<20){ d.box.w=420; d.box.h=300; } if(d.arrow&&Math.hypot(d.arrow.x2-d.arrow.x1,d.arrow.y2-d.arrow.y1)<5){ D.wb.els.pop(); W.undo.pop(); } if(d.pen&&d.pen.pts.length<2){ D.wb.els.pop(); W.undo.pop(); } if(d.pan) save(); else save(); draw(); }
+function dbl(ev){ const h=hit(world(ev.clientX,ev.clientY)); if(!h) return; if(h.type==='sticky'||h.type==='text') editText(h); else if(h.type==='frame') FH.prompt('Frame title','Title',h.title,t=>{ h.title=t; save(); draw(); }); else if(h.type==='ref'){ const it=D.items.find(i=>i.id===h.ref); if(it) FH.modal(`<img src="${it.src}" style="width:100%;border-radius:8px">${it.note?`<p style="margin-top:10px">${e(it.note)}</p>`:''}<div class="acts"><button class="btn accent" onclick="FH.close()">Close</button></div>`,true); } }
+const GFONTS=['Inter','Bricolage Grotesque','Playfair Display','Bebas Neue','Oswald','Montserrat','Lora','Cormorant Garamond','DM Serif Display','Anton','Archivo Black','Space Grotesk','Courier Prime','Special Elite','Caveat','Permanent Marker','Shadows Into Light','Kalam','Abril Fatface','Cinzel','Libre Baskerville','Raleway','Poppins','Roboto Mono'];
+function loadFont(f){ if(!f||document.querySelector(`link[data-font="${f}"]`)) return; const l=document.createElement('link'); l.rel='stylesheet'; l.dataset.font=f; l.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(f).replace(/%20/g,'+')+':wght@400;600;700&display=swap'; document.head.appendChild(l); document.fonts&&document.fonts.load(`600 20px "${f}"`).then(()=>draw()).catch(()=>{}); }
+function fontOf(el){ return `${el.bold===false?400:600} ${el.size||22}px "${el.font||'Inter'}", Inter, sans-serif`; }
+function editText(el){ FH.modal(`<h3>${el.type==='sticky'?'Sticky note':'Text'}</h3><textarea id="tx" style="height:140px;font:14px var(--sans)">${e(el.text||'')}</textarea>${el.type==='text'?`<div class="field" style="margin-top:10px"><label>Size <em id="tsv">${el.size}px</em></label><input type="range" id="ts" min="10" max="160" value="${el.size}"></div><div style="display:grid;grid-template-columns:1fr 1fr 60px;gap:8px"><div class="field"><label>Google font</label><input list="gfl" id="tf" value="${e(el.font||'Inter')}" placeholder="Any Google Fonts name"><datalist id="gfl">${GFONTS.map(f=>`<option>${f}</option>`).join('')}</datalist></div><div class="field"><label>Preview</label><div id="tpv" style="font:600 20px '${e(el.font||'Inter')}';padding:6px 0;white-space:nowrap;overflow:hidden">Aa Bb 123</div></div><div class="field"><label>Colour</label><input type="color" id="tc" value="${/^#[0-9a-f]{6}$/i.test(el.color)?el.color:'#ffffff'}" style="width:100%;height:34px;border:none;background:none"></div></div><p class="hint">Type any family from fonts.google.com — it loads automatically.</p>`:''}<div class="acts"><button class="btn" id="txc">Cancel</button><button class="btn accent" id="txo">Done</button></div>`);
+  const t=$('tx'); t.focus(); const ts=$('ts'); if(ts) ts.oninput=()=>$('tsv').textContent=ts.value+'px'; const tf=$('tf'); if(tf) tf.oninput=()=>{ loadFont(tf.value.trim()); $('tpv').style.fontFamily=`'${tf.value.trim()}'`; };
+  $('txc').onclick=()=>{ FH.close(); if(!el.text){ D.wb.els=D.wb.els.filter(x=>x!==el); draw(); } };
+  $('txo').onclick=()=>{ el.text=t.value; if(ts) el.size=+ts.value; if(tf){ el.font=tf.value.trim()||'Inter'; loadFont(el.font); el.color=$('tc').value; } FH.close(); if(!el.text) D.wb.els=D.wb.els.filter(x=>x!==el); save(); draw(); }; }
+function img(id){ const it=D.items.find(i=>i.id===id); if(!it) return null; if(imgCache[id]) return imgCache[id]; const im=new Image(); im.onload=draw; im.src=it.src; imgCache[id]=im; return im; }
+function wrap(c,text,x,y,w,lh){ String(text).split('\n').forEach(par=>{ let line=''; par.split(' ').forEach(wd=>{ const t=line?line+' '+wd:wd; if(c.measureText(t).width>w&&line){ c.fillText(line,x,y); y+=lh; line=wd; } else line=t; }); c.fillText(line,x,y); y+=lh; }); }
+function paint(c,els,sc){ const light=document.documentElement.dataset.theme==='light';
+  els.forEach(el=>{ c.save();
+    if(el.type==='frame'){ c.fillStyle=light?'rgba(0,0,0,.03)':'rgba(255,255,255,.03)'; c.strokeStyle=el.color||'#7aa7ff'; c.lineWidth=2/sc; c.setLineDash([8/sc,6/sc]); c.fillRect(el.x,el.y,el.w,el.h); c.strokeRect(el.x,el.y,el.w,el.h); c.setLineDash([]); c.fillStyle=el.color||'#7aa7ff'; c.font=`700 ${16}px Bricolage Grotesque, Inter`; c.fillText(el.title||'Frame',el.x+2,el.y-8); }
+    else if(el.type==='ref'){ const im=img(el.ref); c.fillStyle='#000'; c.fillRect(el.x,el.y,el.w,el.h); if(im&&im.complete) c.drawImage(im,el.x,el.y,el.w,el.h); }
+    else if(el.type==='sticky'){ c.shadowColor='rgba(0,0,0,.3)'; c.shadowBlur=12; c.fillStyle=el.color; c.fillRect(el.x,el.y,el.w,el.h); c.shadowBlur=0; c.fillStyle='#16181d'; c.font='500 15px Inter'; wrap(c,el.text||'',el.x+12,el.y+26,el.w-24,20); }
+    else if(el.type==='text'){ c.fillStyle=el.color; c.font=fontOf(el); String(el.text||'').split('\n').forEach((l,i)=>c.fillText(l,el.x,el.y+(el.size||22)*(i+1))); }
+    else if(el.type==='path'){ c.strokeStyle=el.color; c.lineWidth=el.width; c.lineCap=c.lineJoin='round'; c.beginPath(); el.pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y)); c.stroke(); }
+    else if(el.type==='arrow'){ c.strokeStyle=c.fillStyle=el.color; c.lineWidth=el.width; c.lineCap='round'; const a=Math.atan2(el.y2-el.y1,el.x2-el.x1), L=10+el.width*3; c.beginPath(); c.moveTo(el.x1,el.y1); c.lineTo(el.x2,el.y2); c.stroke(); c.beginPath(); c.moveTo(el.x2,el.y2); c.lineTo(el.x2-L*Math.cos(a-.4),el.y2-L*Math.sin(a-.4)); c.lineTo(el.x2-L*Math.cos(a+.4),el.y2-L*Math.sin(a+.4)); c.closePath(); c.fill(); }
+    c.restore(); }); }
+function draw(){ if(!cv||!cx) return; const d=devicePixelRatio||1, V=D.wb.view; cx.setTransform(1,0,0,1,0,0); cx.clearRect(0,0,cv.width,cv.height);
+  const step=40*V.z; cx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--border'); for(let x=((V.x%step)+step)%step;x<cv.width/d;x+=step) for(let y=((V.y%step)+step)%step;y<cv.height/d;y+=step){ cx.fillRect(x*d,y*d,1.5*d,1.5*d); }
+  cx.setTransform(d*V.z,0,0,d*V.z,d*V.x,d*V.y); paint(cx,D.wb.els,V.z);
+  const s=sel(); if(s){ cx.strokeStyle='#c24a52'; cx.lineWidth=1.5/V.z; cx.setLineDash([5/V.z,4/V.z]);
+    if(s.type==='path'){ const xs=s.pts.map(p=>p[0]), ys=s.pts.map(p=>p[1]); cx.strokeRect(Math.min(...xs)-6,Math.min(...ys)-6,Math.max(...xs)-Math.min(...xs)+12,Math.max(...ys)-Math.min(...ys)+12); }
+    else if(s.type==='arrow') cx.strokeRect(Math.min(s.x1,s.x2)-6,Math.min(s.y1,s.y2)-6,Math.abs(s.x2-s.x1)+12,Math.abs(s.y2-s.y1)+12);
+    else { const w=s.w||textW(s), h=s.h||(s.size||22)*1.3*String(s.text||'').split('\n').length; cx.strokeRect(s.x-4,s.y-4,w+8,h+8); cx.setLineDash([]); if(s.w){ cx.fillStyle='#c24a52'; cx.fillRect(s.x+s.w-6/V.z,s.y+s.h-6/V.z,12/V.z,12/V.z); } } cx.setLineDash([]); }
+  if(!D.wb.els.length){ cx.setTransform(d,0,0,d,0,0); cx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--muted'); cx.font='500 14px Inter'; cx.textAlign='center'; cx.fillText('Drag references from the left, or pick a tool and start drawing',cv.width/d/2,cv.height/d/2); cx.textAlign='left'; } }
+function png(){ if(!D.wb.els.length) return; const [a,b,c,d]=bounds(), pad=60, k=Math.min(2, 3000/(c-a+2*pad)); const out=document.createElement('canvas'); out.width=(c-a+2*pad)*k; out.height=(d-b+2*pad)*k; const o=out.getContext('2d');
+  o.fillStyle=document.documentElement.dataset.theme==='light'?'#f5f3ee':'#120d0e'; o.fillRect(0,0,out.width,out.height); o.setTransform(k,0,0,k,(pad-a)*k,(pad-b)*k); paint(o,D.wb.els,1);
+  out.toBlob(bl=>FH.download((D.title||'mood-board').replace(/\s+/g,'-')+'-whiteboard.png', bl, 'image/png')); }
+/* ---------- global drop / paste ---------- */
+document.addEventListener('dragover',x=>{ if(dragI==null) x.preventDefault(); });
+document.addEventListener('drop',x=>{ if(dragI!=null||D.tab==='wb') return; x.preventDefault(); if(x.dataTransfer.files.length) addFiles(x.dataTransfer.files); });
+document.addEventListener('paste',x=>{ if(['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return; const fs=[...(x.clipboardData?x.clipboardData.items:[])].filter(i=>i.kind==='file').map(i=>i.getAsFile()); if(fs.length){ x.preventDefault(); if(D.tab==='wb'){ const r=cv.getBoundingClientRect(); addFiles(fs, world(r.left+r.width/2, r.top+r.height/2)); } else addFiles(fs); return; } const t=(x.clipboardData.getData('text')||'').trim(); if(/^https?:\/\//.test(t)){ x.preventDefault(); D.tab==='audio'?($('aurl').value=t):addLink(t); } });
+/* ---------- exports ---------- */
+$('b-json').onclick=()=>FH.download((D.title||'mood-board').replace(/\s+/g,'-')+'.json', JSON.stringify(D), 'application/json');
+$('ojson').onchange=async x=>{ const f=x.target.files[0]; x.target.value=''; if(!f) return; try{ const d=JSON.parse(await f.text()); if(!Array.isArray(d.items)) throw 0; FH.confirm('Replace this board?','The board is replaced by the file.','Replace',()=>{ D=Object.assign({tab:'visual', items:[], audio:[], wb:{els:[],view:{x:0,y:0,z:1}}},d); imgCache={}; save(); setTab(D.tab); }); }catch(err){ FH.toast('That is not a mood board file.'); } };
+$('b-print').onclick=()=>{ const items=D.items.filter(it=>filter==='Everything'||(it.dep||[]).includes(filter)); let wbImg='';
+  if(D.wb.els.length){ const [a,b,c,d]=bounds(), pad=40, k=Math.min(1.5,1600/(c-a+2*pad)); const out=document.createElement('canvas'); out.width=(c-a+2*pad)*k; out.height=(d-b+2*pad)*k; const o=out.getContext('2d'); o.fillStyle='#fff'; o.fillRect(0,0,out.width,out.height); o.setTransform(k,0,0,k,(pad-a)*k,(pad-b)*k); paint(o,D.wb.els,1); wbImg=out.toDataURL('image/jpeg',.85); }
+  const h=`<h1>${e(D.title||FH.currentProject().name)} — Mood board${filter!=='Everything'?' · '+e(filter):''}</h1>${DEPTS.filter(dp=>items.some(i=>(i.dep||[]).includes(dp))).map(dp=>`<h2>${e(dp)}</h2><div style="columns:3;column-gap:10px">${items.filter(i=>(i.dep||[]).includes(dp)).map(card).join('')}</div>`).join('')}${items.some(i=>!(i.dep||[]).length)?`<h2>Other references</h2><div style="columns:3;column-gap:10px">${items.filter(i=>!(i.dep||[]).length).map(card).join('')}</div>`:''}
+  ${D.audio.length?`<h2>Music &amp; sound</h2><table>${D.audio.map(a=>`<tr><td><b>${e(a.title||a.url||'')}</b><br><span class="muted" style="font-size:10px">${e(a.url||'uploaded file')}</span></td><td>${e((a.tags||[]).join(', '))}</td><td>${e(a.note||'')}</td></tr>`).join('')}</table>`:''}${wbImg?`<h2>Whiteboard</h2><img src="${wbImg}" style="width:100%">`:''}`;
+  function card(it){ return `<div style="break-inside:avoid;margin-bottom:10px">${it.type==='link'?`<p><b>🔗 ${e(it.title||it.url)}</b><br><span class="muted" style="font-size:10px">${e(it.url)}</span></p>`:it.type==='note'?`<p style="font-size:15px"><b>${e(it.text)}</b></p>`:`<img src="${it.src}" style="width:100%;border-radius:3px">`}<div style="font-size:10.5px">${e(it.note||'')}</div></div>`; }
+  FH.previewSheet(h,(D.title||'Mood board')); };
+(D.wb.els||[]).forEach(el=>el.font&&loadFont(el.font));
+counts(); setTab(D.tab||'visual');
+
+/* ---------- Canva ---------- */
+D.canva=D.canva||{assets:{}};
+function canvaImgs(){ return D.items.filter(i=>i.src&&(i.type===undefined||i.type==='img'||i.type==='video')); }
+async function canvaPushAssets(prog){ const C=D.canva, L=canvaImgs(); let n=0; for(const it of L){ if(C.assets[it.id]) continue; prog&&prog(`Uploading image ${++n}…`); C.assets[it.id]=await FHCanva.uploadAsset(it.src,(it.note||it.name||'Moodboard ref').slice(0,40)); save(); } return L.map(i=>C.assets[i.id]).filter(Boolean); }
+async function canvaSync(prog){ const C=D.canva; const ids=await canvaPushAssets(prog); const title=(D.title||FH.currentProject().name)+' — moodboard';
+  if(C.templateId){ prog&&prog('Filling your Canva template…'); const ds=await FHCanva.templateFields(C.templateId), data={}; let k=0; const notes=D.items.filter(i=>i.note).map(i=>i.note);
+    Object.entries(ds).forEach(([name,f])=>{ if(f.type==='image'&&ids[k]) data[name]={type:'image',asset_id:ids[k++]}; else if(f.type==='text') data[name]={type:'text',text:/title|heading|name/i.test(name)?title:(notes.shift()||'')}; });
+    const d=await FHCanva.autofill(C.templateId,data,title); Object.assign(C,{designId:d.id,edit:d.urls&&d.urls.edit_url,view:d.urls&&d.urls.view_url,at:Date.now()}); }
+  else if(!C.designId){ prog&&prog('Creating the Canva design…'); const d=await FHCanva.createDesign(title,ids[0]); Object.assign(C,{designId:d.id,edit:d.urls&&d.urls.edit_url,view:d.urls&&d.urls.view_url,at:Date.now()}); }
+  else C.at=Date.now();
+  save(); return C; }
+async function canvaImport(fmt){ const urls=await FHCanva.exportDesign(D.canva.designId,fmt); for(const [k,u] of urls.entries()){ try{ const b=await (await fetch(u)).blob(); if(fmt==='png'){ const src=await FH.fileToDataURL(new File([b],'canva.png',{type:'image/png'}),1600,.85); D.items.unshift({id:FH.uid(),src,note:'From Canva'+(urls.length>1?' · page '+(k+1):''),dep:[]}); } else { const id=FH.uid(); await vPut('mbfile:'+id,b); D.items.unshift({id,type:'file',name:'Canva moodboard.pdf',size:b.size,mime:'application/pdf',note:'Exported from Canva',dep:[]}); } }catch(e){ window.open(u,'_blank'); } } save(); setTab('visual'); }
+let canvaTimer=null; const _save=save; save=function(){ _save(); if(D.canva&&D.canva.auto&&FHCanva.tok()){ clearTimeout(canvaTimer); canvaTimer=setTimeout(()=>canvaPushAssets().then(()=>FH.toast('New images synced to Canva.')).catch(()=>{}),20000); } };
+$('b-canva').onclick=()=>canvaPanel();
+async function canvaPanel(){ const C=D.canva, conn=!!FHCanva.tok(), px=FHCanva.proxy();
+  FH.modal(`<h3>Canva</h3>${!px?`<p class="hint">Canva needs a small helper server to keep your Canva app secret safe. Deploy the <b>canva-proxy</b> folder to Netlify (steps in README → “Canva”), then paste its address here.</p>`:''}
+  <div class="field"><label>Proxy address</label><input id="cv-px" value="${e(px)}" placeholder="https://your-proxy.netlify.app/canva"></div>
+  ${px?(conn?`<p>✓ Connected to Canva <span class="hint" id="cv-me"></span> · <a href="#" id="cv-out">disconnect</a></p>`:`<button class="btn accent" id="cv-con">Connect my Canva account</button>`):''}
+  ${conn?`<div class="field" style="margin-top:12px"><label>Brand template ID (optional — Autofill, needs Canva Enterprise)</label><input id="cv-tpl" value="${e(C.templateId||'')}" placeholder="e.g. DAFVztcvd9z"></div>
+  <label class="check" style="display:flex;gap:6px;margin:6px 0"><input type="checkbox" id="cv-auto" ${C.auto?'checked':''}> Auto-sync new images to Canva while I edit</label>
+  <div class="card" style="margin-top:10px">${C.designId?`<b>Linked design</b> · last sync ${new Date(C.at).toLocaleString()}<br><a href="${e(C.edit||'#')}" target="_blank" rel="noopener">Open in Canva ↗</a>`:'<span class="hint">No Canva design yet.</span>'}<div id="cv-st" class="hint" style="margin-top:6px"></div></div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn accent" id="cv-exp">${C.designId?'Update in Canva':'Export to Canva'}</button>${C.designId?'<button class="btn" id="cv-png">⬇ Bring back PNG</button><button class="btn" id="cv-pdf">⬇ Bring back PDF</button><button class="btn ghost" id="cv-new">New design</button>':''}</div>
+  <p class="hint" style="margin-top:10px">One-way: the tool sends images to Canva. Canva's API can’t edit an existing design, so “Update” uploads new images to your Canva Uploads${C.templateId?' and makes a fresh autofilled design':''}.</p>`:''}
+  <div class="acts"><button class="btn" onclick="FH.close()">Close</button></div>`);
+  $('cv-px').onchange=()=>{ FH.LS.set('fh:canva-proxy',$('cv-px').value.trim()); canvaPanel(); };
+  const st=t=>{ const x=$('cv-st'); if(x) x.textContent=t; };
+  if($('cv-con')) $('cv-con').onclick=async()=>{ try{ await FHCanva.connect(); FH.toast('Canva connected.'); canvaPanel(); }catch(err){ FH.toast(err.message); } };
+  if($('cv-out')) $('cv-out').onclick=ev=>{ ev.preventDefault(); FHCanva.disconnect(); canvaPanel(); };
+  if($('cv-me')) FHCanva.me().then(n=>{ if(n&&$('cv-me')) $('cv-me').textContent='as '+n; });
+  if($('cv-tpl')) $('cv-tpl').onchange=()=>{ C.templateId=$('cv-tpl').value.trim(); save(); };
+  if($('cv-auto')) $('cv-auto').onchange=()=>{ C.auto=$('cv-auto').checked; save(); };
+  const run=async(fn)=>{ try{ await fn(); canvaPanel(); }catch(err){ st('⚠ '+err.message); } };
+  if($('cv-exp')) $('cv-exp').onclick=()=>run(async()=>{ await canvaSync(st); FH.toast('Sent to Canva.'); });
+  if($('cv-new')) $('cv-new').onclick=()=>run(async()=>{ C.designId=null; await canvaSync(st); });
+  if($('cv-png')) $('cv-png').onclick=()=>run(async()=>{ st('Exporting PNG…'); await canvaImport('png'); FH.close(); FH.toast('Canva design added to the board.'); });
+  if($('cv-pdf')) $('cv-pdf').onclick=()=>run(async()=>{ st('Exporting PDF…'); await canvaImport('pdf'); FH.close(); FH.toast('PDF attached — click Open on its card.'); }); }
+</script></body></html>

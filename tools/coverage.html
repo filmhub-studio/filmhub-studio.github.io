@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Script Coverage & Feedback</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.sub{display:flex;gap:12px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+.view{flex:1;min-height:0;display:flex}
+.lp{width:330px;border-right:1px solid var(--border);overflow:auto;padding:14px;background:var(--surface);flex-shrink:0}
+.beatc{border:1px solid var(--border2);border-left:3px solid var(--border2);border-radius:10px;padding:10px 11px;margin-bottom:8px;background:var(--bg)}
+.beatc.placed{border-left-color:var(--green)}.beatc.late{border-left-color:var(--yellow)}
+.beatc .t{display:flex;align-items:center;gap:6px}.beatc b{font-size:13px;flex:1}.beatc .exp{font:10.5px var(--mono);color:var(--muted)}
+.beatc textarea{min-height:40px;height:44px;margin-top:6px;font-size:12px}
+.beatc .tip{font-size:11.5px;color:var(--muted);margin-top:4px}
+.pdfv{flex:1;overflow:auto;padding:20px;background:var(--surface3)}
+.pg{display:grid;grid-template-columns:1fr 260px;gap:14px;max-width:1100px;margin:0 auto 18px}
+.pg .sheet-c{position:relative;background:#fff;border-radius:4px;box-shadow:0 4px 18px rgba(0,0,0,.3);min-height:300px}
+.pg canvas{width:100%;display:block;border-radius:4px}
+.pg .no{position:absolute;top:8px;left:-38px;font:600 11px var(--mono);color:var(--muted)}
+.pg .marks{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+.pg .marks span{font:600 10.5px var(--sans);background:var(--accent);color:var(--on-accent);border-radius:10px;padding:2px 8px}
+.gut{display:flex;flex-direction:column;gap:8px}
+.gut textarea{min-height:60px;font-size:12px}
+.cm{font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px}.cm i{font:10px var(--mono);color:var(--muted);font-style:normal}
+.upload{margin:60px auto;max-width:440px;text-align:center}
+.rep{flex:1;display:grid;grid-template-columns:220px 1fr;min-height:0}
+.rep nav{border-right:1px solid var(--border);padding:14px;overflow:auto;background:var(--surface)}
+.rep nav a{display:flex;gap:8px;padding:7px 9px;border-radius:8px;font-size:12.5px;color:var(--muted);text-decoration:none;cursor:pointer}.rep nav a:hover{background:var(--surface2);color:var(--text)}.rep nav a i{font:10.5px var(--mono);color:var(--faint);font-style:normal}
+.rep main{overflow:auto;padding:22px 28px}
+.rsec{max-width:860px;margin:0 auto 26px;scroll-margin-top:10px}.rsec h3{font-size:19px;margin-bottom:4px}.rsec h3 i{font:600 12px var(--mono);color:var(--accent);font-style:normal;margin-right:8px}
+.rate{display:grid;grid-template-columns:160px repeat(4,1fr);gap:4px;align-items:center;margin-bottom:4px;font-size:12.5px}
+.rate button{border:1px solid var(--border2);background:var(--bg);border-radius:7px;padding:6px 0;font-size:11.5px;color:var(--muted)}.rate button.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.ww{display:grid;grid-template-columns:1fr 1fr;gap:10px}.ww label{font:600 10px var(--mono);letter-spacing:.08em}.ww .g{color:var(--green)}.ww .r{color:var(--danger)}
+.chk{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}.chk small{display:block;font:10.5px var(--mono);color:var(--yellow)}
+.tline{flex:1;overflow:auto;padding:24px}
+.tl-row{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;margin-bottom:12px}
+.tl-bar{position:relative;height:46px;background:var(--surface);border:1px solid var(--border);border-radius:10px}
+.tl-bar span{position:absolute;top:6px;height:32px;border-radius:7px;font:600 10px var(--sans);padding:3px 6px;overflow:hidden;white-space:nowrap;color:#111}
+.tl-bar .pt{width:3px;padding:0;background:var(--accent)}
+</style></head><body>
+<div class="sub"><div class="seg" id="mode"><button data-m="coverage">Coverage</button><button data-m="feedback">Feedback</button></div><div class="seg" id="tabs"><button data-t="script">Script &amp; structure</button><button data-t="report">Coverage report</button><button data-t="timeline">Timeline</button></div><span class="spacer"></span><span class="pill" id="pdfname"></span></div>
+<div class="view" id="view"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="common.js"></script><script src="structures.js"></script>
+<script>
+FH.header({kicker:'01 · Develop', name:'Script Coverage & Feedback', actions:'<label class="btn">Upload script PDF<input type="file" id="pdf" accept="application/pdf" hidden></label><button class="btn accent" id="b-print">Print / PDF</button>',
+ help:'<p><b>Coverage mode</b> is for writing a report on a script (as a reader or script editor). <b>Feedback mode</b> is for notes page by page, for a writer friend or your own drafts.</p><p>Upload the PDF, pick a structure, scroll to where a beat happens and press <b>Place</b>. The Timeline compares the script with the textbook shape. The PDF stays on this computer; your notes and report are saved with the project (and shared in ☁ projects — each person loads the same PDF).</p>'});
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const e=FH.esc, $=id=>document.getElementById(id);
+let D=Object.assign({mode:'coverage', tab:'script', fw:'save', placed:{}, beatNotes:{}, notes:{}, summaries:{}, report:{rate:{}, comments:{}}, pages:0, pdfName:''}, FH.load('coverage',{}));
+function save(){ FH.save('coverage',D); }
+let pdf=null, curPage=1;
+// PDF kept in this browser's IndexedDB
+const IDB={ db:null, open(){ return new Promise((res,rej)=>{ if(this.db) return res(this.db); const r=indexedDB.open('filmhub',1); r.onupgradeneeded=()=>r.result.createObjectStore('files'); r.onsuccess=()=>res(this.db=r.result); r.onerror=rej; }); },
+  async get(k){ const db=await this.open(); return new Promise(res=>{ const q=db.transaction('files').objectStore('files').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>res(null); }); },
+  async set(k,v){ const db=await this.open(); return new Promise(res=>{ const t=db.transaction('files','readwrite'); t.objectStore('files').put(v,k); t.oncomplete=res; }); } };
+const PK=()=>'coverage-pdf:'+FH.currentId();
+async function loadPDF(buf){ if(!window.pdfjsLib){ FH.toast('The PDF reader could not load (needs internet).'); return; } pdf=await pdfjsLib.getDocument({data:buf}).promise; D.pages=pdf.numPages; save(); }
+$('pdf').onchange=async ev=>{ const f=ev.target.files[0]; ev.target.value=''; if(!f) return; const buf=await f.arrayBuffer(); await IDB.set(PK(), {name:f.name, buf}); D.pdfName=f.name; await loadPDF(buf.slice(0)); FH.toast(`${f.name} · ${D.pages} pages`); setTab('script'); };
+function head(){ document.querySelectorAll('[data-m]').forEach(b=>b.classList.toggle('on',b.dataset.m===D.mode)); document.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===D.tab)); $('pdfname').textContent=D.pdfName?`${D.pdfName} · ${D.pages} pages`:'No script loaded'; }
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{ D.mode=b.dataset.m; save(); setTab(D.tab); });
+document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>setTab(b.dataset.t));
+function setTab(t){ D.tab=t; save(); head(); ({script, report, timeline})[t](); }
+const fw=()=>STRUCTURES[D.fw]||STRUCTURES.save, pk=b=>D.fw+':'+b[0];
+function beatsPanel(){ const F=fw(), N=D.pages||100;
+  return `<div class="label">Structure</div><div class="seg" style="margin-bottom:10px">${Object.entries(STRUCTURES).map(([k,s])=>`<button data-fw="${k}" class="${k===D.fw?'on':''}">${s.short}</button>`).join('')}</div>
+  <p class="hint" style="margin-bottom:10px">${D.pages?'Scroll the script to where each beat happens and press <b>Place</b>.':'Upload a script PDF to place beats. You can still write notes against each beat now.'}</p>
+  ${F.beats.map(b=>{ const p=D.placed[pk(b)], e1=Math.max(1,Math.round(b[2]*N)), e2=Math.max(1,Math.round(b[3]*N)); const late=p&&(p<e1-Math.max(2,N*.05)||p>e2+Math.max(2,N*.05));
+    return `<div class="beatc ${p?(late?'late':'placed'):''}"><div class="t"><b>${e(b[1])}</b>${p?`<button class="btn sm" data-go="${p}">p.${p}</button><button class="ib" data-clr="${b[0]}" title="Clear">✕</button>`:`<button class="btn sm accent" data-place="${b[0]}" ${D.pages?'':'disabled'}>Place</button>`}</div><div class="exp">Expected p.${e1}${e2!==e1?'–'+e2:''}${late?' · off the textbook position':''}</div><div class="tip">${e(b[4])}</div><textarea data-bn="${b[0]}" placeholder="What happens here in this script?">${e(D.beatNotes[pk(b)]||'')}</textarea></div>`; }).join('')}`; }
+function bindBeats(root){ root.querySelectorAll('[data-fw]').forEach(b=>b.onclick=()=>{ D.fw=b.dataset.fw; save(); setTab(D.tab); });
+  root.querySelectorAll('[data-place]').forEach(b=>b.onclick=()=>{ D.placed[D.fw+':'+b.dataset.place]=curPage; save(); script(true); FH.toast('Placed on page '+curPage); });
+  root.querySelectorAll('[data-clr]').forEach(b=>b.onclick=()=>{ delete D.placed[D.fw+':'+b.dataset.clr]; save(); script(true); });
+  root.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{ const el=$('pg'+b.dataset.go); if(el) el.scrollIntoView({behavior:'smooth'}); });
+  root.querySelectorAll('[data-bn]').forEach(t=>t.oninput=()=>{ D.beatNotes[D.fw+':'+t.dataset.bn]=t.value; save(); }); }
+async function script(keepScroll){
+  const sc=keepScroll&&$('pdfv')?$('pdfv').scrollTop:0;
+  $('view').innerHTML=`<aside class="lp" id="lp">${beatsPanel()}</aside><div class="pdfv" id="pdfv">${D.pages&&pdf?'':`<div class="upload card"><h3 style="font-size:20px">Upload a script</h3><p class="hint" style="margin:6px 0 14px">Drop a screenplay PDF here. In Coverage mode you'll map its structure and write the report; in Feedback mode you can comment and summarise page by page.</p><label class="btn accent">Choose PDF<input type="file" accept="application/pdf" id="pdf2" hidden></label>${D.pdfName&&!pdf?`<p class="hint" style="margin-top:10px">Last time you used <b>${e(D.pdfName)}</b>. Load it again on this computer to continue.</p>`:''}</div>`}</div>`;
+  bindBeats($('lp'));
+  const p2=$('pdf2'); if(p2) p2.onchange=$('pdf').onchange;
+  const v=$('pdfv'); v.ondragover=ev=>ev.preventDefault(); v.ondrop=ev=>{ ev.preventDefault(); const f=ev.dataTransfer.files[0]; if(f&&f.type==='application/pdf'){ $('pdf').onchange({target:{files:[f],value:''}}); } };
+  if(!(D.pages&&pdf)) return;
+  const marks={}; Object.entries(D.placed).forEach(([k,p])=>{ if(!k.startsWith(D.fw+':')) return; const b=fw().beats.find(x=>x[0]===k.split(':')[1]); if(b)(marks[p]=marks[p]||[]).push(b[1]); });
+  let h=''; for(let i=1;i<=pdf.numPages;i++){ const notes=D.notes[i]||[];
+    h+=`<div class="pg" id="pg${i}" data-p="${i}"><div class="sheet-c"><span class="no">${i}</span><canvas data-c="${i}"></canvas><div class="marks">${(marks[i]||[]).map(m=>`<span>${e(m)}</span>`).join('')}</div></div><div class="gut">${D.mode==='feedback'?`<textarea data-sum="${i}" placeholder="Page ${i} summary">${e(D.summaries[i]||'')}</textarea>`:''}${notes.map((n,j)=>`<div class="cm">${e(n.text)}<br><i>${e(n.by||'')} · ${new Date(n.at).toLocaleDateString()}</i> <button class="ib del" data-dn="${i}:${j}" style="width:20px;height:20px">✕</button></div>`).join('')}<button class="btn sm ghost" data-an="${i}" style="align-self:flex-start">+ Comment on p.${i}</button></div></div>`; }
+  v.innerHTML=h; v.scrollTop=sc;
+  const io=new IntersectionObserver(ents=>ents.forEach(async en=>{ if(!en.isIntersecting) return; const c=en.target; if(c.dataset.done) return; c.dataset.done=1; const page=await pdf.getPage(+c.dataset.c); const vp=page.getViewport({scale:1.6}); c.width=vp.width; c.height=vp.height; await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise; }),{root:v, rootMargin:'800px'});
+  v.querySelectorAll('canvas').forEach(c=>io.observe(c));
+  const io2=new IntersectionObserver(ents=>ents.forEach(en=>{ if(en.isIntersecting) curPage=+en.target.dataset.p; }),{root:v, threshold:.45}); v.querySelectorAll('.pg').forEach(p=>io2.observe(p));
+  v.querySelectorAll('[data-sum]').forEach(t=>t.oninput=()=>{ D.summaries[t.dataset.sum]=t.value; save(); });
+  v.querySelectorAll('[data-an]').forEach(b=>b.onclick=()=>FH.prompt('Comment on page '+b.dataset.an,'Comment','',t=>{ if(!t) return; (D.notes[b.dataset.an]=D.notes[b.dataset.an]||[]).push({text:t, at:Date.now(), by:''}); save(); script(true); },'Add'));
+  v.querySelectorAll('[data-dn]').forEach(b=>b.onclick=()=>{ const [p,j]=b.dataset.dn.split(':'); D.notes[p].splice(+j,1); save(); script(true); });
+}
+const AREAS=[['premise','Premise & concept','Is the premise clear, original and worth telling? Is the central question set up early?'],['structure','Structure & pacing','Where does the story turn? Does anything drag or rush? Does the ending pay off?'],['character','Character','Do we know what the protagonist wants and needs? Do they change? Are the others distinct?'],['dialogue','Dialogue','Does each voice sound different? Is there subtext, or does everyone say what they mean?'],['theme','Theme','What is it about underneath? Is the theme shown rather than told?'],['visual','Visual storytelling','Is it cinematic? Could you show more and say less?']];
+const RSECS=[['details','Script details'],['overview','Overview'],['logline','Logline'],['synopsis','Synopsis'],['comments','Comments'],['keynotes','Key notes'],['production','Production'],['reflection','Reader’s reflection'],['checklist','Reader’s checklist']];
+function report(){ const R=D.report; R.rate=R.rate||{}; R.comments=R.comments||{};
+  const fld=(k,l,ph,ta)=>`<div class="field"><label>${l}</label>${ta?`<textarea data-r="${k}" placeholder="${e(ph||'')}">${e(R[k]||'')}</textarea>`:`<input type="text" data-r="${k}" value="${e(R[k]||'')}" placeholder="${e(ph||'')}">`}</div>`;
+  const checks=[['Every note cites a page, scene or quote',null],['Strengths are included, not just problems',()=>`${AREAS.filter(a=>(R.comments[a[0]+'_w']||'').trim()).length} of ${AREAS.length} areas have a “What works” note`],['Observation and personal preference are labelled separately',null],['Notes are measured against the writer’s stated aims',null],['Each major problem has two or three possible options',null],['Logline and synopsis are neutral, present tense and spoiler-complete',()=>[!R.logline&&'Logline missing',!R.synopsis&&'Synopsis missing'].filter(Boolean).join(' · ')],['Spelling and grammar checked; tone is professional and constructive',null]];
+  $('view').innerHTML=`<div class="rep"><nav>${RSECS.map(([k,n],i)=>`<a data-go="${k}"><i>${String(i+1).padStart(2,'0')}</i>${n}</a>`).join('')}<button class="btn accent" style="width:100%;margin-top:12px" id="rp">Print / save as PDF</button><button class="btn ghost" style="width:100%;margin-top:6px" id="rc">Clear report</button></nav><main>
+  <div class="rsec" id="r-details"><h3><i>01</i>Script details</h3><div class="card"><div class="row2">${fld('title','Title',D.pdfName.replace(/\.pdf$/i,''))}${fld('writer','Writer')}</div><div class="row3">${fld('draft','Draft / version','e.g. Second draft, 3 Nov')}${fld('genre','Genre','e.g. Psychological thriller')}${fld('format','Format & length','Short · 12 pages')}</div><div class="row3">${fld('reader','Reader')}${fld('date','Date of reading',new Date().toLocaleDateString())}${fld('readtype','Type of read','First read / revision read')}</div></div></div>
+  <div class="rsec" id="r-overview"><h3><i>02</i>Overview</h3><div class="card">${AREAS.map(a=>`<div class="rate"><span>${a[1]}</span>${['Excellent','Good','Fair','Poor'].map(v=>`<button data-rate="${a[0]}" data-v="${v}" class="${R.rate[a[0]]===v?'on':''}">${v}</button>`).join('')}</div>`).join('')}<div class="rate" style="margin-top:10px"><span><b>Verdict</b></span>${['Recommend','Consider','Pass'].map(v=>`<button data-rate="verdict" data-v="${v}" class="${R.rate.verdict===v?'on':''}">${v}</button>`).join('')}</div></div></div>
+  <div class="rsec" id="r-logline"><h3><i>03</i>Logline</h3><div class="card">${fld('logline','One sentence: who wants what, what stands in the way, what’s at stake','',1)}</div></div>
+  <div class="rsec" id="r-synopsis"><h3><i>04</i>Synopsis</h3><div class="card">${fld('synopsis','Neutral, present tense, include the ending','',1)}</div></div>
+  <div class="rsec" id="r-comments"><h3><i>05</i>Comments</h3><p class="hint" style="margin-bottom:10px">What works and what needs work, area by area. Quote pages. Tick when a point is your personal preference rather than an observation.</p>${AREAS.map(a=>`<div class="card" style="margin-bottom:10px"><b style="font:700 15px var(--display)">${a[1]}</b><p class="hint" style="margin:2px 0 10px">${a[2]}</p>${a[0]==='structure'?`<div style="margin-bottom:10px">${tlBars(true)}</div>`:''}<div class="ww"><div><label class="g">WHAT WORKS</label><textarea data-cm="${a[0]}_w">${e(R.comments[a[0]+'_w']||'')}</textarea></div><div><label class="r">WHAT NEEDS WORK</label><textarea data-cm="${a[0]}_n">${e(R.comments[a[0]+'_n']||'')}</textarea><label class="hint" style="display:flex;gap:6px;margin-top:4px"><input type="checkbox" data-pref="${a[0]}" ${R.comments[a[0]+'_pref']?'checked':''}> This is a preference, not an observation</label></div></div></div>`).join('')}</div>
+  <div class="rsec" id="r-keynotes"><h3><i>06</i>Key notes</h3><div class="card">${fld('key1','1 · Most important','',1)}${fld('key2','2','',1)}${fld('key3','3','',1)}</div></div>
+  <div class="rsec" id="r-production"><h3><i>07</i>Production</h3><div class="card"><div class="row3">${fld('budget','Budget level','Micro / low / medium')}${fld('locs','Locations','e.g. 3, mostly INT')}${fld('castsize','Cast size','e.g. 2 leads, 4 support')}</div>${fld('feasible','Feasibility notes','Night exteriors, stunts, kids, animals, period…',1)}</div></div>
+  <div class="rsec" id="r-reflection"><h3><i>08</i>Reader’s reflection</h3><div class="card">${fld('reflection','How did it make you feel? What stayed with you?','',1)}</div></div>
+  <div class="rsec" id="r-checklist"><h3><i>09</i>Reader’s checklist</h3><div class="card">${checks.map((c,i)=>{ const auto=c[1]&&c[1](); return `<label class="chk"><input type="checkbox" data-ck="${i}" ${(R.checks||{})[i]?'checked':''}><span>${c[0]}${auto?`<small>${e(auto)}</small>`:''}</span></label>`; }).join('')}</div></div>
+  </main></div>`;
+  const m=$('view');
+  m.querySelectorAll('[data-r]').forEach(i=>i.oninput=()=>{ R[i.dataset.r]=i.value; save(); });
+  m.querySelectorAll('[data-cm]').forEach(i=>i.oninput=()=>{ R.comments[i.dataset.cm]=i.value; save(); });
+  m.querySelectorAll('[data-pref]').forEach(i=>i.onchange=()=>{ R.comments[i.dataset.pref+'_pref']=i.checked; save(); });
+  m.querySelectorAll('[data-rate]').forEach(b=>b.onclick=()=>{ R.rate[b.dataset.rate]=b.dataset.v; save(); m.querySelectorAll(`[data-rate="${b.dataset.rate}"]`).forEach(x=>x.classList.toggle('on',x===b)); });
+  m.querySelectorAll('[data-ck]').forEach(i=>i.onchange=()=>{ R.checks=R.checks||{}; R.checks[i.dataset.ck]=i.checked; save(); });
+  m.querySelectorAll('[data-go]').forEach(a=>a.onclick=()=>$('r-'+a.dataset.go).scrollIntoView({behavior:'smooth'}));
+  $('rp').onclick=printReport; $('rc').onclick=()=>FH.confirm('Clear the whole coverage report?','Placed beats, comments and page summaries are kept.','Clear report',()=>{ D.report={rate:{},comments:{}}; save(); report(); });
+}
+function tlBars(compact){ const F=fw(), N=D.pages||100; const col=['#ffd166','#7aa7ff','#5ee0a0','#d8666d','#b39dff','#34d3b6'];
+  return `<div class="tl-row"><span class="hint">Textbook</span><div class="tl-bar">${F.beats.map((b,i)=>`<span style="left:${b[2]*100}%;width:${Math.max(1.2,(b[3]-b[2])*100)}%;background:${col[i%6]}" title="${e(b[1])}">${compact?'':e(b[1])}</span>`).join('')}</div></div>
+  <div class="tl-row"><span class="hint">This script</span><div class="tl-bar">${F.beats.map((b,i)=>{ const p=D.placed[pk(b)]; return p?`<span style="left:${(p-1)/Math.max(1,N-1)*100}%;width:${compact?1.5:10}%;background:${col[i%6]}" title="${e(b[1])} · p.${p}">${compact?'':e(b[1])}</span>`:''; }).join('')}</div></div>`; }
+function timeline(){ const N=D.pages;
+  $('view').innerHTML=`<div class="tline"><div class="card" style="margin-bottom:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div class="seg">${Object.entries(STRUCTURES).map(([k,s])=>`<button data-fw="${k}" class="${k===D.fw?'on':''}">${s.short}</button>`).join('')}</div><span class="hint">${Object.keys(D.placed).filter(k=>k.startsWith(D.fw+':')).length} / ${fw().beats.length} beats placed · ${N||'?'} pages</span></div></div>
+    <div class="card">${tlBars(false)}<div class="tl-row"><span class="hint">Pages</span><div style="display:flex;justify-content:space-between;font:10.5px var(--mono);color:var(--muted)">${N?[1,Math.round(N*.25),Math.round(N*.5),Math.round(N*.75),N].map(p=>`<span>p.${p}</span>`).join(''):''}</div></div></div>
+    ${D.mode==='feedback'||Object.keys(D.summaries).length?`<div class="card"><div class="label">Page summaries</div>${Object.entries(D.summaries).filter(([p,t])=>t.trim()).sort((a,b)=>a[0]-b[0]).map(([p,t])=>`<p style="margin-bottom:6px"><b>p.${p}</b> ${e(t)}</p>`).join('')||'<p class="hint">Write summaries beside each page in Feedback mode.</p>'}</div>`:''}</div>`;
+  $('view').querySelectorAll('[data-fw]').forEach(b=>b.onclick=()=>{ D.fw=b.dataset.fw; save(); timeline(); }); }
+function printReport(){ const R=D.report, F=fw();
+  const h=`<h1>Script coverage — ${e(R.title||D.pdfName||'Untitled')}</h1><p class="muted">${e(R.writer||'')} · ${e(R.draft||'')} · ${e(R.genre||'')} · ${e(R.format||'')} · read by ${e(R.reader||'')} ${e(R.date||'')}</p>
+  <h2>Overview</h2><table>${AREAS.map(a=>`<tr><th style="width:40%">${a[1]}</th><td>${e(R.rate[a[0]]||'—')}</td></tr>`).join('')}<tr><th>Verdict</th><td><b>${e(R.rate.verdict||'—')}</b></td></tr></table>
+  <h2>Logline</h2><p>${e(R.logline||'—')}</p><h2>Synopsis</h2><p style="white-space:pre-wrap">${e(R.synopsis||'—')}</p>
+  <h2>Structure (${F.name})</h2><table>${F.beats.map(b=>`<tr><td style="width:30%">${e(b[1])}</td><td style="width:12%">${D.placed[pk(b)]?'p.'+D.placed[pk(b)]:'—'}</td><td>${e(D.beatNotes[pk(b)]||'')}</td></tr>`).join('')}</table>
+  <h2>Comments</h2>${AREAS.map(a=>`<p style="margin:8px 0 2px"><b>${a[1]}</b>${R.comments[a[0]+'_pref']?' <span class="muted">(preference)</span>':''}</p><table><tr><th style="width:50%">What works</th><th>What needs work</th></tr><tr><td style="white-space:pre-wrap">${e(R.comments[a[0]+'_w']||'')}</td><td style="white-space:pre-wrap">${e(R.comments[a[0]+'_n']||'')}</td></tr></table>`).join('')}
+  <h2>Key notes</h2><ol style="margin-left:18px">${['key1','key2','key3'].map(k=>R[k]?`<li>${e(R[k])}</li>`:'').join('')}</ol>
+  <h2>Production</h2><p>Budget: ${e(R.budget||'—')} · Locations: ${e(R.locs||'—')} · Cast: ${e(R.castsize||'—')}<br>${e(R.feasible||'')}</p><h2>Reader’s reflection</h2><p style="white-space:pre-wrap">${e(R.reflection||'—')}</p>`;
+  FH.previewSheet(h,'Coverage report'); }
+$('b-print').onclick=()=>D.tab==='report'?printReport():(setTab('report'), setTimeout(printReport,200));
+(async()=>{ const f=await IDB.get(PK()).catch(()=>null); if(f&&f.buf){ try{ await loadPDF(f.buf.slice(0)); D.pdfName=f.name; }catch(err){} } setTab(D.tab||'script'); })();
+</script></body></html>

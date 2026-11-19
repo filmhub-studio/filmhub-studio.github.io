@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Exposure Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>canvas{width:100%;display:block;border-radius:10px;background:#0f0e0d}.meter{display:flex;gap:2px;margin:10px 0}.meter i{flex:1;height:14px;border-radius:2px;background:var(--border2)}.meter i.on{background:var(--accent)}.meter i.mid{outline:1px solid #fff}
+.tabs{display:flex;gap:6px;margin-bottom:14px}</style></head><body>
+<div class="wrap">
+<div class="tabs chips"><span class="chip on" data-p="fall">Falloff &amp; distance</span><span class="chip" data-p="soft">Hard vs soft</span><span class="chip" data-p="tri">Exposure triangle</span></div>
+<div id="p-fall" class="layout r"><div class="card"><canvas id="cf" width="1100" height="420"></canvas></div><div><div class="card"><div class="label">Light</div>
+  <div class="field"><label>Light → subject <em id="dv"></em></label><input type="range" id="d" min="0.3" max="12" step="0.05" value="2"></div>
+  <div class="field"><label>Subject → background <em id="bv"></em></label><input type="range" id="b" min="0" max="8" step="0.05" value="1.5"></div>
+  <div class="field"><label>Source</label><select id="src"><option value="1">Bare LED / Fresnel (point-ish)</option><option value="0.6">Softbox / dome</option><option value="0.2">Big book light / window</option><option value="0">Sun (parallel light)</option></select></div>
+  <div class="readout" id="rf"></div></div>
+  <div class="card"><p class="hint"><b>Inverse square law:</b> double the distance from a small source and you get a quarter of the light, 2 stops less. Move a light <b>further away</b> and the subject and background become <b>more even</b>; move it <b>closer</b> and the background falls off into darkness.</p></div></div></div>
+<div id="p-soft" class="layout r" style="display:none"><div class="card"><canvas id="cs" width="1100" height="420"></canvas></div><div><div class="card"><div class="label">Source</div>
+  <div class="field"><label>Source size <em id="szv"></em></label><input type="range" id="sz" min="0.02" max="2" step="0.01" value="0.6"></div>
+  <div class="field"><label>Distance to subject <em id="sdv"></em></label><input type="range" id="sd" min="0.3" max="8" step="0.05" value="1.5"></div>
+  <div class="readout" id="rs"></div></div><div class="card"><p class="hint">Softness depends on the source size <b>relative to the subject</b> and its distance. A 60cm softbox close up is soft; the same box across the room is hard. The sun is huge but so far away it is a hard source; clouds turn the whole sky into one big soft source.</p></div></div></div>
+<div id="p-tri" class="layout r" style="display:none"><div class="card"><canvas id="ct" width="1100" height="440"></canvas><div class="meter" id="meter"></div><p class="hint" id="tv"></p></div><div><div class="card"><div class="label">Scene</div>
+  <div class="field"><label>Scene light</label><select id="ev"><option value="15">Bright sun (EV 15)</option><option value="13">Overcast day (EV 13)</option><option value="11">Open shade (EV 11)</option><option value="9">Bright office / studio LED (EV 9)</option><option value="7" selected>Living room (EV 7)</option><option value="5">Candle-lit / dim bar (EV 5)</option><option value="3">Street at night (EV 3)</option></select></div>
+  <div class="label" style="margin-top:14px">Camera</div>
+  <div class="field"><label>Frame rate</label><select id="fps"><option>24</option><option selected>25</option><option>30</option><option>50</option><option>60</option></select></div>
+  <div class="field"><label>Shutter angle <em id="shv"></em></label><input type="range" id="sh" min="11.25" max="360" step="11.25" value="180"></div>
+  <div class="field"><label>T-stop <em id="tsv"></em></label><input type="range" id="ts" min="0" max="10" step="1" value="3"></div>
+  <div class="field"><label>ISO <em id="isv"></em></label><input type="range" id="iso" min="0" max="8" step="1" value="3"></div>
+  <div class="field"><label>ND filter <em id="ndv"></em></label><input type="range" id="nd" min="0" max="10" step="1" value="0"></div>
+  <div class="readout" id="rt"></div></div></div></div>
+</div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'Learn', name:'Exposure Lab', actions:''});
+document.querySelectorAll('[data-p]').forEach(c=>c.onclick=()=>{ document.querySelectorAll('[data-p]').forEach(x=>x.classList.toggle('on',x===c)); ['fall','soft','tri'].forEach(p=>document.getElementById('p-'+p).style.display=p===c.dataset.p?'':'none'); all(); });
+const $=id=>document.getElementById(id);
+function fall(){ const d=+$('d').value, b=+$('b').value, k=+$('src').value; $('dv').textContent=d.toFixed(2)+' m'; $('bv').textContent=b.toFixed(2)+' m';
+  const I=x=>k===0?1:1/Math.pow(x,2*k+ (k>0?0:0)); const eff=x=>k===0?1:Math.pow(d/x,2*k/1); const subj=1, bg=eff(d+b), stops=Math.log2(bg);
+  $('rf').innerHTML=`Background is <b>${stops.toFixed(1)} stops</b> ${stops<-0.05?'darker':'brighter'} than the subject.<br>Moving the light from ${d.toFixed(1)} m to ${(d*2).toFixed(1)} m loses <b>${(k===0?0:2*k).toFixed(1)} stops</b> on the subject.`;
+  const c=$('cf'), x=c.getContext('2d'), W=c.width, H=c.height; x.clearRect(0,0,W,H); const L=60, maxD=Math.max(6,d+b+1), sc=(W-L-40)/maxD;
+  for(let px=L;px<W-20;px+=2){ const dist=(px-L)/sc; if(dist<0.05) continue; const e=k===0?1:Math.min(1,Math.pow(d/dist,2*k)); const g=Math.round(255*Math.pow(Math.min(1,e*.55),.45)); x.fillStyle=`rgb(${g},${g*.93|0},${g*.82|0})`; x.fillRect(px,40,2,H-120); }
+  x.fillStyle='#ffd27a'; x.beginPath(); x.arc(L,H/2-40,14,0,7); x.fill(); const sx=L+d*sc, bx=L+(d+b)*sc; x.fillStyle='#ff9d7a'; x.beginPath(); x.ellipse(sx,H/2-40,16,40,0,0,7); x.fill(); x.fillStyle='#6d655d'; x.fillRect(bx,40,10,H-120);
+  x.strokeStyle='#8effc4'; x.lineWidth=2; x.beginPath(); for(let px=L+5;px<W-20;px+=3){ const dist=(px-L)/sc; const e=k===0?1:Math.min(4,Math.pow(d/dist,2*k)); const yy=H-30-Math.min(70,(Math.log2(e)+3)*12); px===L+5?x.moveTo(px,yy):x.lineTo(px,yy); } x.stroke(); x.fillStyle='rgba(255,255,255,.6)'; x.font='12px JetBrains Mono'; x.fillText('light level (stops)',W-180,H-8); x.fillText('subject',sx-24,30); x.fillText('background',bx-30,30); }
+function soft(){ const s=+$('sz').value, d=+$('sd').value; $('szv').textContent=Math.round(s*100)+' cm'; $('sdv').textContent=d.toFixed(2)+' m'; const ang=2*Math.atan(s/2/d)*180/Math.PI; const pen=Math.min(1,ang/40);
+  $('rs').innerHTML=`Source covers <b>${ang.toFixed(1)}°</b> as seen from the subject → <b>${ang<5?'hard':ang<15?'medium':ang<30?'soft':'very soft'}</b> light.<br>Shadow edge (penumbra) ≈ <b>${Math.round(s*0.3/d*100)} cm</b> for an object 30 cm in front of a wall.`;
+  const c=$('cs'), x=c.getContext('2d'), W=c.width, H=c.height; x.fillStyle='#d8d0c4'; x.fillRect(0,0,W,H); const cx=W*.55, cy=H*.5;
+  const g=x.createRadialGradient(cx+70,cy+40,30*(1-pen*.2),cx+70,cy+40,30+pen*150); g.addColorStop(0,'rgba(30,25,20,.85)'); g.addColorStop(1,'rgba(30,25,20,0)'); x.fillStyle=g; x.beginPath(); x.ellipse(cx+70,cy+40,170,190,0,0,7); x.fill();
+  const sg=x.createLinearGradient(cx-110,0,cx+110,0); const m=.5-pen*.3; sg.addColorStop(0,'#fff1e2'); sg.addColorStop(Math.max(0,m),'#f0d6bf'); sg.addColorStop(Math.min(1,.5+pen*.35),'#5b4535'); sg.addColorStop(1,'#3a2a20'); x.fillStyle=sg; x.beginPath(); x.arc(cx,cy,110,0,7); x.fill();
+  x.fillStyle='#ffd27a'; const ls=Math.max(6,s*80); x.fillRect(60,cy-ls/2-60,14,ls); x.fillStyle='#333'; x.font='13px JetBrains Mono'; x.fillText(`${Math.round(s*100)} cm source at ${d.toFixed(1)} m`,40,H-20); }
+const STOPS=[1.4,1.8,2,2.8,4,5.6,8,11,16,22,1.2].sort((a,b)=>a-b), ISOS=[100,200,400,800,1600,3200,6400,12800,25600];
+function tri(){ const ev=+$('ev').value, fps=+$('fps').value, ang=+$('sh').value, N=STOPS[+$('ts').value], iso=ISOS[+$('iso').value], nd=+$('nd').value*0.3;
+  const t=ang/360/fps; $('shv').textContent=ang+'° = 1/'+Math.round(1/t)+' s'; $('tsv').textContent='T'+N; $('isv').textContent=iso+(iso===800?' (native on many cameras)':''); $('ndv').textContent=nd?'ND '+nd.toFixed(1)+' (−'+Math.round(nd/0.3)+' stops)':'none';
+  const camEV=Math.log2(N*N/t)-Math.log2(iso/100)+nd/0.3; const diff=ev-camEV; // + = overexposed
+  $('rt').innerHTML=`Camera set for EV <b>${camEV.toFixed(1)}</b>, scene is EV <b>${ev}</b><br>${Math.abs(diff)<0.5?'<b>Correctly exposed</b> ✓':diff>0?`<b>${diff.toFixed(1)} stops over</b> → close the iris, add ND or lower ISO`:`<b>${(-diff).toFixed(1)} stops under</b> → open up, raise ISO, slow the shutter or add light`}<br>Motion blur: ${ang>=170&&ang<=190?'natural (180° rule)':ang<90?'staccato, crisp (action / Saving Private Ryan look)':ang>270?'smeary, dreamy':'slightly '+(ang<180?'crisper':'blurrier')+' than normal'}<br>Depth of field: ${N<=2?'very shallow':N<=4?'shallow':N<=8?'medium':'deep'} · Noise: ${iso<=800?'clean':iso<=3200?'some':'heavy'}`;
+  $('meter').innerHTML=Array.from({length:13},(_,i)=>{ const v=i-6; return `<i class="${Math.round(diff)===v?'on':''} ${v===0?'mid':''}" title="${v>0?'+':''}${v}"></i>`; }).join(''); $('tv').textContent='−6 … 0 … +6 stops';
+  const c=$('ct'), x=c.getContext('2d'), W=c.width, H=c.height; const k=Math.pow(2,diff); const lum=v=>Math.round(255*Math.min(1,Math.pow(v*k,1/2.2)));
+  const blurPx=Math.max(0,(4-Math.log2(N))*2.2); x.save(); x.filter=`blur(${blurPx}px)`; const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,`rgb(${lum(.12)},${lum(.14)},${lum(.2)})`); g.addColorStop(1,`rgb(${lum(.05)},${lum(.05)},${lum(.05)})`); x.fillStyle=g; x.fillRect(-20,-20,W+40,H+40);
+  for(let i=0;i<6;i++){ const v=[.9,.5,.18,.35,.7,.08][i]; x.fillStyle=`rgb(${lum(v)},${lum(v*.9)},${lum(v*.75)})`; x.fillRect(80+i*170,120,120,200); } x.restore();
+  const mb=Math.min(120,ang/360*90); x.fillStyle=`rgba(${lum(.18)},${lum(.18)},${lum(.18)},.35)`; for(let j=0;j<8;j++) x.fillRect(W*.5+j*mb/8,H*.55,60,60); x.fillStyle=`rgb(${lum(.18)},${lum(.18)},${lum(.18)})`; x.fillRect(W*.5+mb,H*.55,60,60);
+  if(iso>800){ const n=(Math.log2(iso/800))*18; for(let i=0;i<3000*Math.log2(iso/800);i++){ x.fillStyle=`rgba(${Math.random()*255|0},${Math.random()*255|0},${Math.random()*255|0},${n/255})`; x.fillRect(Math.random()*W,Math.random()*H,2,2); } }
+  x.fillStyle='rgba(255,255,255,.75)'; x.font='13px JetBrains Mono'; x.fillText('18% grey card, moving →',W*.5,H*.55-10); }
+function all(){ fall(); soft(); tri(); }
+document.querySelectorAll('input,select').forEach(i=>i.addEventListener('input',all));
+all();
+
+
+/* ===== Calculators tab ===== */
+(function(){ const $=id=>document.getElementById(id); const tabs=document.querySelector(".tabs"); tabs.insertAdjacentHTML('beforeend','<span class="chip" data-p="calc">Meter &amp; ND calculator</span><span class="chip" data-p="units">Light units</span>');
+  document.querySelector('.wrap').insertAdjacentHTML('beforeend',`<div id="p-calc" class="layout r" style="display:none"><div>
+  <div class="card"><div class="label">1 · What the meter says</div><div class="row2" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+   <div class="field"><label>Meter T-stop</label><select id="m-t"></select></div><div class="field"><label>at ISO</label><select id="m-iso"></select></div><div class="field"><label>Frame rate</label><select id="m-fps"><option>24</option><option selected>25</option><option>30</option><option>50</option><option>60</option></select></div><div class="field"><label>Shutter angle</label><select id="m-sh"><option>45</option><option>90</option><option>172.8</option><option selected>180</option><option>270</option><option>360</option></select></div></div></div>
+  <div class="card"><div class="label">2 · What you want to shoot at</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+   <div class="field"><label>Your T-stop</label><select id="w-t"></select></div><div class="field"><label>Your ISO</label><select id="w-iso"></select></div><div class="field"><label>Frame rate</label><select id="w-fps"><option>24</option><option selected>25</option><option>30</option><option>48</option><option>50</option><option>60</option><option>100</option><option>120</option></select></div><div class="field"><label>Shutter angle</label><select id="w-sh"><option>45</option><option>90</option><option>172.8</option><option selected>180</option><option>270</option><option>360</option></select></div></div>
+   <div class="readout" id="w-out" style="margin-top:10px"></div></div>
+  <div class="card"><div class="label">Equivalent exposures</div><div id="w-eq"></div></div></div>
+  <div><div class="card"><div class="label">Stops cheat sheet</div><p class="hint"><b>1 stop</b> = double or half the light.<br>ND 0.3 = 1 stop, 0.6 = 2, 0.9 = 3, 1.2 = 4, 1.5 = 5, 1.8 = 6, 2.1 = 7.<br>ISO 400 → 800 = +1 stop. 180° → 90° = −1 stop. 25 → 50 fps (same angle) = −1 stop.<br>Variable NDs often lose sharpness and add an X-pattern past 5–6 stops; stack a fixed ND instead.</p></div>
+  <div class="card"><div class="label">Flicker-safe shutters (50 Hz mains, UK/EU)</div><p class="hint">At 25 fps: 180° (1/50) and 360° (1/25) are safe. At 24 fps use 172.8° (1/50). At 50 fps use 360° (1/50). For 60 Hz countries use 144° at 24 fps or 1/60.</p></div></div></div>
+  <div id="p-units" class="layout r" style="display:none"><div class="card"><div class="label">Convert light readings</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><div class="field"><label>Lux</label><input type="number" id="u-lux" value="1000"></div><div class="field"><label>Foot-candles</label><input type="number" id="u-fc"></div><div class="field"><label>EV (ISO 100)</label><input type="number" id="u-ev" step="0.1"></div></div><div class="readout" id="u-out"></div></div>
+  <div class="card"><div class="label">Typical levels</div><p class="hint">Sun 100 000 lux · Overcast 10 000 · Office 500 · Living room 100 · Street at night 10 · Full moon 0.2<br>Most cinema cameras at ISO 800, T2.8, 180° need ~250–500 lux on the face for a normal key.</p></div></div>`);
+  const all=[...document.querySelectorAll('.tabs .chip')]; all.forEach(c=>c.addEventListener('click',()=>{ all.forEach(x=>x.classList.toggle('on',x===c)); document.querySelectorAll('[id^="p-"]').forEach(d=>d.style.display=d.id==='p-'+c.dataset.p?'':'none'); }));
+  const T=[1,1.4,2,2.8,4,5.6,8,11,16,22], ISO=[100,200,400,640,800,1250,1600,2500,3200,6400,12800];
+  const o=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+  $('m-t').innerHTML=o(T,8); $('w-t').innerHTML=o(T,2.8); $('m-iso').innerHTML=o(ISO,800); $('w-iso').innerHTML=o(ISO,800);
+  const stopsT=(a,b)=>2*Math.log2(b/a), ndName=s=>{ const n=Math.ceil(s*3-0.15)/3; return n<=0?'none':(n*0.3).toFixed(1)+' ('+(Math.round(n*3)/3)+' stops)'; };
+  function calc(){ const g=id=>+$(id).value; const mt=g('m-t'), mi=g('m-iso'), mf=g('m-fps'), ms=g('m-sh'), wt=g('w-t'), wi=g('w-iso'), wf=g('w-fps'), ws=g('w-sh');
+    const mExp=ms/360/mf, wExp=ws/360/wf; const extra=stopsT(wt,mt)+Math.log2(wi/mi)+Math.log2(wExp/mExp);
+    const ndStops=Math.max(0,extra), under=Math.min(0,extra);
+    $('w-out').innerHTML=extra>0.15?`You have <b>${extra.toFixed(1)} stops too much light</b> → add ND <b>${ndName(ndStops)}</b>${extra>7?' — or stop down / lower the ISO too':''}.`:extra<-0.15?`You are <b>${(-under).toFixed(1)} stops under</b>. Open up, raise ISO, slow the shutter or add light (${Math.round((Math.pow(2,-under)-1)*100)}% more).`:'Spot on — no ND needed.';
+    const rows=[]; for(const t of T){ for(const i of ISO){ const ex=stopsT(t,mt)+Math.log2(i/mi)+Math.log2(wExp/mExp); if(ex>=0&&ex<=7.1&&Math.abs(ex*3-Math.round(ex*3))<0.2) rows.push([t,i,ex]); } }
+    $('w-eq').innerHTML='<table class="grid"><thead><tr><th>T-stop</th><th>ISO</th><th>ND needed</th></tr></thead><tbody>'+rows.filter(r=>[400,800,1600,3200].includes(r[1])||r[1]===wi).slice(0,24).map(r=>`<tr><td>T${r[0]}</td><td>${r[1]}</td><td>${ndName(r[2])}</td></tr>`).join('')+'</tbody></table>'; }
+  ['m-t','m-iso','m-fps','m-sh','w-t','w-iso','w-fps','w-sh'].forEach(id=>$(id).onchange=calc); calc();
+  let lock=false; function u(src){ if(lock) return; lock=true; let lux=+$('u-lux').value; if(src==='fc') lux=+$('u-fc').value*10.764; if(src==='ev') lux=2.5*Math.pow(2,+$('u-ev').value);
+    if(src!=='lux') $('u-lux').value=Math.round(lux); if(src!=='fc') $('u-fc').value=(lux/10.764).toFixed(1); if(src!=='ev') $('u-ev').value=Math.log2(lux/2.5).toFixed(1);
+    const fc=lux/10.764, tAt800=Math.sqrt(fc*800*(1/50)/25*4); $('u-out').innerHTML=`At ISO 800, 1/50: about <b>T${Math.max(0.7,tAt800).toFixed(1)}</b> for a correct exposure on a mid-grey face.`; lock=false; }
+  $('u-lux').oninput=()=>u('lux'); $('u-fc').oninput=()=>u('fc'); $('u-ev').oninput=()=>u('ev'); u('lux');
+})();
+</script></body></html>

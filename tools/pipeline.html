@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Pipeline Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+.phase{margin-bottom:18px}.phase h3{font-size:17px;margin-bottom:2px}.phase .ph-meta{font:10px var(--mono);color:var(--muted);margin-bottom:10px}
+.task{display:grid;grid-template-columns:22px 1fr auto;gap:10px;padding:9px 10px;border-bottom:1px solid #221f1c;align-items:start}
+.task:hover{background:var(--surface2)}.task input{margin-top:3px;accent-color:var(--accent);width:15px;height:15px}
+.task b{font-weight:600;font-size:13px}.task p{font-size:11.5px;color:var(--muted);margin-top:2px}.task.done b{text-decoration:line-through;color:var(--muted)}
+.task .who{font:9.5px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.prog{height:6px;background:var(--border2);border-radius:4px;overflow:hidden}.prog i{display:block;height:100%;background:#5fd38a}
+.nav a{display:block;padding:7px 9px;border-radius:6px;color:var(--text);text-decoration:none;font-size:12px}.nav a:hover{background:var(--surface2)}.nav a span{float:right;font:10px var(--mono);color:var(--muted)}
+.gl{display:grid;grid-template-columns:160px 1fr 28px;gap:8px;padding:6px 0;border-bottom:1px solid #221f1c;font-size:12px}.gl b{color:var(--accent)}
+.tools a{display:inline-block;margin:2px 4px 2px 0}
+</style></head><body>
+<div class="wrap"><div class="layout">
+  <aside><div class="card" style="position:sticky;top:76px"><div class="chips" id="which" style="margin-bottom:12px"></div><div class="label">Progress</div><div class="prog"><i id="pbar"></i></div><p class="hint" id="ptxt" style="margin:6px 0 12px"></p><div class="label">Phases</div><div class="nav" id="nav"></div><label class="hint" style="display:flex;gap:6px;margin-top:10px"><input type="checkbox" id="hide"> Hide finished tasks</label></div></aside>
+  <main><div id="body"></div><div class="card" id="glossary"></div></main>
+</div></div>
+<script src="common.js"></script>
+<script>
+const G={
+pre:{name:'Pre-Production Pipeline', kicker:'02 · Prep', phases:[
+ ['Development & green light','Weeks 8–6 before',[
+  ['Lock the script draft','Writer · Director','Table read with friends; cut anything you cannot afford to shoot.','script'],
+  ['Write logline, synopsis & treatment','Writer · Producer','One sentence, one paragraph, one page — you will need all three for pitches and festivals.'],
+  ['Build the look','Director · DP · Designer','Mood board and colour palette per scene. Agree references before anyone buys anything.','moodboard'],
+  ['Set the budget and cap','Producer','Rough top sheet; add 10% contingency.','budget'],
+  ['Approve the project with your tutor','Producer','Get sign-off on content, locations and any risky elements early.']]],
+ ['Breakdown & planning','Weeks 6–4',[
+  ['Break down the script','1st AD · Producer','Cast, props, costume, SFX, vehicles, animals per scene.'],
+  ['Cast the film','Director · Casting','Breakdowns out, auditions, callbacks, chemistry reads, contracts/releases.','casting'],
+  ['Recce locations','Director · DP · Producer','Visit at shoot time of day. Power, sound, sun path, access, toilets.','recce'],
+  ['Get location permission in writing','Producer','Email or signed form with dates and times. Council/landowner permission for public places.'],
+  ['Crew up','Producer','Fill every key role; share contact sheet.']]],
+ ['Visual planning','Weeks 4–2',[
+  ['Shot list every scene','Director · DP','Size, angle, movement, lens; estimate setup time.','shotlist'],
+  ['Floor plans & blocking','Director · DP','Top-down plans for each scene: actors, marks, camera positions.','blocking'],
+  ['Lighting plans','DP · Gaffer','Per setup, from the college kit. Check power on the recce.','lighting'],
+  ['Book kit on Cheqroom','DP · Gaffer · Sound','Camera, lenses, lights, grip, sound. Check batteries and media.'],
+  ['Camera & lens tests','DP · 1st AC','Test the look, LUT, skin tones and false colour.','falsecolour'],
+  ['Rehearsals','Director · Cast','Blocking rehearsals in the real space if possible.']]],
+ ['Finalise','Final 2 weeks',[
+  ['Shooting schedule','1st AD','Group by location, then day/night; protect actor availability.','schedule'],
+  ['Risk assessment','Producer','Every hazard, controls, emergency info, signed.','risk'],
+  ['Insurance, releases & permits','Producer','Actor releases, location releases, music clearances, public liability.'],
+  ['Catering & transport','Producer','Dietary needs and allergies; who drives what.'],
+  ['Call sheets out 24h before','1st AD · Producer','Weather, sunrise/sunset, nearest A&E, every call time.','callsheet'],
+  ['Kit check-out & prep','Camera · Lighting · Sound','Build the camera, charge everything, format cards, pack spares.']]]]},
+prod:{name:'Production Pipeline', kicker:'03 · Shoot', phases:[
+ ['Crew call & set-up','Before first shot',[
+  ['Unit base & safety briefing','1st AD','Fire exits, first aider, hazards from the risk assessment, toilets, no-go areas.'],
+  ['Unload kit & power plan','Gaffer · Spark','Cable runs taped, distro, sandbags on every stand.'],
+  ['Build camera & check','1st AC · DIT','Format cards, set project frame rate / resolution / codec, check timecode, clean sensor.'],
+  ['Sound check','Sound','Room tone plan, lavs fitted, slate sync.'],
+  ['Hair, make-up & costume','HMU · Costume','Continuity photos for every look.']]],
+ ['The shot cycle','Repeats for every setup',[
+  ['Block','Director · Cast','Rehearse with the actors; marks laid.','blocking'],
+  ['Light','DP · Gaffer','Light to the plan; check false colour and contrast ratio.','lighting'],
+  ['Rehearse for camera','Director · DP · 1st AC','Focus marks, boom position, eyelines.'],
+  ['Shoot','All','“Roll sound… speed… roll camera… mark it… action”. Script supervisor logs takes.'],
+  ['Check gate / playback','DP · Director','Move on when you have it; note circle takes.'],
+  ['Turn around / reset','All','Move to the next setup on the shot list; tick it off.','shotlist']]],
+ ['Wrap','End of day',[
+  ['Room tone & wild tracks','Sound','30–60 seconds of silence in every location.'],
+  ['Offload & back up media','DIT','3-2-1: three copies, two drives, one off site. Checksum.'],
+  ['Strike & reset location','All','Leave it better than you found it; photos for the owner.'],
+  ['Kit check-in','Camera · Lighting · Sound','Count everything back against the kit list.'],
+  ['Wrap report & next call sheet','1st AD · Producer','What we shot, what moved, tomorrow’s call.','callsheet']]]]},
+post:{name:'Post-Production Pipeline', kicker:'04 · Post', phases:[
+ ['Offload & organise','Day 1',[
+  ['Verify backups','Editor · DIT','Check every card copied twice; spot-check clips play.'],
+  ['Set up the Resolve project','Editor','Timeline resolution & frame rate match the camera; project folder structure.'],
+  ['Sync sound','Editor','Auto-sync by waveform or timecode in the Media pool.'],
+  ['Organise bins','Editor','Bins by scene; mark circle takes; keywords.']]],
+ ['Edit','Weeks 1–3',[
+  ['Assembly cut','Editor','Everything in script order. Do not judge yet.'],
+  ['Rough cut','Editor · Director','Find the story; cut long. Watch with fresh eyes.'],
+  ['Fine cut','Editor · Director','Rhythm, performances, transitions. Feedback screening.'],
+  ['Picture lock','Director · Producer','No more picture changes after this.']]],
+ ['Sound, music & VFX','Weeks 3–4',[
+  ['Dialogue edit & clean-up','Sound','Fairlight: remove noise, fill room tone, match levels.'],
+  ['Sound design & foley','Sound','Atmos, spot effects, foley.'],
+  ['Music','Composer / Editor','Licensed or original; get it cleared in writing.'],
+  ['VFX & titles','Editor','Clean-ups, screen replacements, titles and credits.']]],
+ ['Colour & deliver','Week 5',[
+  ['Colour grade','Colourist · DP','Balance shots, then the look. Check skin tones on scopes.','palette'],
+  ['Final mix','Sound','-23 LUFS for festivals/broadcast, -14 for online; stereo.'],
+  ['Export masters','Editor','ProRes 422 HQ master, H.264 for online, subtitles file.'],
+  ['Archive','Editor · Producer','Project, media and masters backed up; deliverables list for festivals.']]]]},
+};
+const GLOSS={pre:[['Breakdown','Tagging everything a scene needs (cast, props, wardrobe…).'],['Recce','A visit to a location to check it before the shoot.'],['Stripboard','The schedule shown as coloured strips, one per scene.'],['DOOD','Day out of days: which days each actor works.'],['Top sheet','The one-page summary of the budget by department.']],
+ prod:[['Martini','The last shot of the day.'],['Abby Singer','The second-to-last shot of the day.'],['Circle take','A take the director wants used.'],['Room tone','Recorded silence of a location, used in the edit.'],['Turnaround','Moving the camera to shoot the reverse angle.'],['Gate check','Checking the camera before moving on.']],
+ post:[['Picture lock','When the edit is final and no more cuts are made.'],['Conform','Rebuilding the edit with the full-quality media.'],['LUFS','Loudness units — how loud a mix is overall.'],['Proxy','A lighter copy of footage for smooth editing.'],['Grade','Colour correction and creative look.']]};
+let which=(location.hash.slice(1)||'pre'); if(!G[which]) which='pre';
+const g=G[which]; FH.header({kicker:g.kicker, name:g.name, actions:'<button class="btn" id="b-reset">Reset ticks</button><button class="btn accent" id="b-print">Print</button>'});
+let data=FH.load('pipeline-'+which, ()=>({done:{}, notes:{}, gloss:GLOSS[which]}));
+const e=FH.esc, TOOLNAME={script:'Script tool',moodboard:'Mood board',budget:'Budget',casting:'Casting',recce:'Recce',shotlist:'Shot list',blocking:'Blocking',lighting:'Lighting planner',falsecolour:'False colour',schedule:'Schedule',risk:'Risk assessment',callsheet:'Call sheet',palette:'Colour palette'};
+function tid(pi,ti){ return pi+'.'+ti; }
+function render(){ const hide=document.getElementById('hide').checked; let total=0, done=0;
+  document.getElementById('which').innerHTML=Object.entries(G).map(([k,v])=>`<a class="chip ${k===which?'on':''}" href="#${k}" style="text-decoration:none">${k==='pre'?'Pre':k==='prod'?'Shoot':'Post'}</a>`).join('');
+  document.getElementById('body').innerHTML=g.phases.map(([name,when,tasks],pi)=>{ const d=tasks.filter((t,ti)=>data.done[tid(pi,ti)]).length; total+=tasks.length; done+=d;
+    return `<div class="card phase" id="ph${pi}"><h3>${pi+1}. ${e(name)}</h3><div class="ph-meta">${e(when)} · ${d}/${tasks.length} done</div>${tasks.map(([t,who,tip,tool],ti)=>{ const k=tid(pi,ti), on=!!data.done[k]; if(hide&&on) return ''; return `<div class="task ${on?'done':''}"><input type="checkbox" data-k="${k}" ${on?'checked':''}><div><b>${e(t)}</b><p>${e(tip)}${tool?` <a href="${tool==='blocking'?'lighting':tool}.html" data-tool="${tool}">Open ${e(TOOLNAME[tool]||tool)} →</a>`:''}</p></div><span class="who">${e(who)}</span></div>`; }).join('')}</div>`; }).join('');
+  document.getElementById('nav').innerHTML=g.phases.map(([name,,tasks],pi)=>`<a href="#" data-go="${pi}">${e(name)}<span>${tasks.filter((t,ti)=>data.done[tid(pi,ti)]).length}/${tasks.length}</span></a>`).join('');
+  document.querySelectorAll('[data-go]').forEach(a=>a.onclick=ev=>{ ev.preventDefault(); document.getElementById('ph'+a.dataset.go).scrollIntoView({behavior:'smooth'}); });
+  document.querySelectorAll('[data-tool]').forEach(a=>a.onclick=ev=>{ if(document.body.classList.contains('in-hub')){ ev.preventDefault(); parent.postMessage({fh:'open', id:a.dataset.tool},'*'); } });
+  document.getElementById('pbar').style.width=(total?done/total*100:0)+'%'; document.getElementById('ptxt').textContent=`${done} of ${total} tasks done`;
+  document.querySelectorAll('[data-k]').forEach(c=>c.onchange=()=>{ c.checked?data.done[c.dataset.k]=Date.now():delete data.done[c.dataset.k]; FH.save('pipeline-'+which,data); render(); });
+  document.getElementById('glossary').innerHTML=`<div class="label">Glossary</div>${data.gloss.map(([t,d],i)=>`<div class="gl"><b>${e(t)}</b><span>${e(d)}</span><button class="ib del" data-gd="${i}">✕</button></div>`).join('')}<div class="row2" style="margin-top:10px;grid-template-columns:160px 1fr auto"><input type="text" id="gt" placeholder="Term"><input type="text" id="gdd" placeholder="What it means"><button class="btn" id="ga">Add</button></div>`;
+  document.querySelectorAll('[data-gd]').forEach(b=>b.onclick=()=>{ data.gloss.splice(+b.dataset.gd,1); FH.save('pipeline-'+which,data); render(); });
+  document.getElementById('ga').onclick=()=>{ const t=document.getElementById('gt').value.trim(), d=document.getElementById('gdd').value.trim(); if(!t) return; data.gloss.push([t,d]); data.gloss.sort((a,b)=>a[0].localeCompare(b[0])); FH.save('pipeline-'+which,data); render(); }; }
+document.getElementById('hide').onchange=render;
+window.addEventListener('hashchange',()=>location.reload());
+document.getElementById('b-reset').onclick=()=>FH.confirm('Untick every task?','Your glossary stays.','Reset',()=>{ data.done={}; FH.save('pipeline-'+which,data); render(); });
+document.getElementById('b-print').onclick=()=>FH.previewSheet(`<h1>${e(g.name)} — ${e(FH.currentProject().name)}</h1>`+g.phases.map(([n,w,t],pi)=>`<h2>${pi+1}. ${e(n)} · ${e(w)}</h2><table>${t.map(([a,who,tip],ti)=>`<tr><td style="width:20px">${data.done[tid(pi,ti)]?'✓':'☐'}</td><td><b>${e(a)}</b><br><span class="muted">${e(tip)}</span></td><td>${e(who)}</td></tr>`).join('')}</table>`).join(''), g.name);
+render();
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

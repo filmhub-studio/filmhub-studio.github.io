@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Casting Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>.rx{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.rx input,.rx select{width:auto;padding:3px 6px;font-size:11.5px}.rx input.wide{width:280px}
+.funnel{display:flex;gap:8px;flex-wrap:wrap}.funnel div{flex:1;min-width:92px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px}.funnel b{display:block;font:600 18px var(--mono)}.funnel span{font:9px var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase}</style></head><body>
+<div class="wrap">
+  <div class="card" style="margin-bottom:14px"><div class="label">Pipeline</div><div class="funnel" id="funnel"></div></div>
+  <div class="tbl-bar"><input type="text" id="q" placeholder="Search names, notes…"><button class="btn" id="b-role">+ Role</button></div>
+  <div id="tbl"></div>
+  <p class="hint" style="margin-top:12px">Each role has its own list of auditionees. Move people along by changing their status. Score auditions out of 10; chemistry read scores help pair actors. Booked people show green.</p>
+</div>
+<script src="common.js"></script>
+<script>
+FH.header({kicker:'02 · Prep · People', name:'Casting Tracker', actions:'<button class="btn" id="b-csv">CSV</button><button class="btn accent" id="b-print">Print / PDF</button>'});
+const STATUS=['Submitted','Invited','Self-tape in','Auditioned','Callback','Chemistry read','Offered','Booked','Declined','Not right'];
+const SC={Booked:'rgba(95,211,138,.12)',Offered:'rgba(194,74,82,.10)',Declined:'rgba(208,71,60,.07)','Not right':'rgba(120,120,120,.06)'};
+let data=FH.load('casting', ()=>({groups:[{id:FH.uid(), name:'LEAD — Name', type:'Lead', age:'20–30', brief:'', rows:[]}]}));
+const cols=[
+  {key:'name',label:'Name',width:'150px'},{key:'status',label:'Status',type:'select',options:STATUS,width:'130px'},
+  {key:'contact',label:'Email / phone',width:'150px'},{key:'agent',label:'Agent',width:'110px'},
+  {key:'score',label:'Audition /10',type:'num',width:'82px'},{key:'chem',label:'Chemistry /10',type:'num',width:'90px'},
+  {key:'avail',label:'Availability',width:'120px'},{key:'fee',label:'Fee',type:'money',width:'86px'},
+  {key:'link',label:'Self-tape / Spotlight link',width:'150px'},{key:'notes',label:'Notes',type:'long'},
+];
+const table=new FH.Table(document.getElementById('tbl'), data, {columns:cols, grouped:true, groupWord:'Role', rowWord:'Auditionee', rerender:true,
+  newRow:()=>({status:'Submitted'}), newGroup:()=>({name:'ROLE — Name', type:'Supporting', age:'', brief:''}),
+  rowStyle:r=>SC[r.status]?'background:'+SC[r.status]:'',
+  groupExtra:g=>{ const b=g.rows.find(r=>r.status==='Booked'); return `<span class="rx"><select data-gf="type" data-g="${g.id}">${['Lead','Supporting','Featured','Extra','Voice'].map(t=>`<option ${t===g.type?'selected':''}>${t}</option>`).join('')}</select><input type="text" data-gf="age" data-g="${g.id}" value="${FH.esc(g.age||'')}" placeholder="Playing age" style="width:90px"><input class="wide" type="text" data-gf="brief" data-g="${g.id}" value="${FH.esc(g.brief||'')}" placeholder="Breakdown: who they are, look, accent, skills"></span>${b?`<span class="pill" style="color:#5fd38a;border-color:#3d6b45">Booked: ${FH.esc(b.name)}</span>`:''}`; },
+  afterRender:()=>{ document.querySelectorAll('[data-gf]').forEach(i=>i.onchange=i.oninput=()=>{ data.groups.find(g=>g.id===i.dataset.g)[i.dataset.gf]=i.value; FH.save('casting',data); }); funnel(); },
+  onChange:()=>{ FH.save('casting',data); funnel(); }});
+function funnel(){ const all=data.groups.flatMap(g=>g.rows); document.getElementById('funnel').innerHTML=`<div><b>${data.groups.length}</b><span>Roles</span></div>`+['Submitted','Auditioned','Callback','Offered','Booked'].map(s=>`<div><b style="color:${s==='Booked'?'#5fd38a':'var(--accent)'}">${all.filter(r=>r.status===s).length}</b><span>${s}</span></div>`).join('')+`<div><b>${data.groups.filter(g=>g.rows.some(r=>r.status==='Booked')).length}/${data.groups.length}</b><span>Roles cast</span></div>`; }
+document.getElementById('q').oninput=e=>{ table.filter=e.target.value; table.render(); };
+document.getElementById('b-role').onclick=()=>document.getElementById('tbl-addg').click();
+document.getElementById('b-csv').onclick=()=>{ const rows=[['Role','Type','Age','Breakdown',...cols.map(c=>c.label)]]; data.groups.forEach(g=>g.rows.forEach(r=>rows.push([g.name,g.type,g.age,g.brief,...cols.map(c=>r[c.key]??'')]))); FH.download((FH.currentProject().name+'-casting.csv').replace(/\s+/g,'-'),FH.csv(rows),'text/csv'); };
+document.getElementById('b-print').onclick=()=>{ let h=`<h1>${FH.esc(FH.currentProject().name)} — Casting</h1>`; data.groups.forEach(g=>{ h+=`<h2>${FH.esc(g.name)} · ${FH.esc(g.type||'')} ${g.age?'· '+FH.esc(g.age):''}</h2>${g.brief?`<p style="font-size:11.5px;margin-bottom:6px">${FH.esc(g.brief)}</p>`:''}<table><tr><th>Name</th><th>Status</th><th>Score</th><th>Chem</th><th>Availability</th><th>Contact</th><th>Notes</th></tr>${g.rows.map(r=>`<tr><td><b>${FH.esc(r.name)}</b></td><td>${FH.esc(r.status)}</td><td>${FH.esc(r.score)}</td><td>${FH.esc(r.chem)}</td><td>${FH.esc(r.avail)}</td><td>${FH.esc(r.contact)}</td><td>${FH.esc(r.notes)}</td></tr>`).join('')}</table>`; }); FH.previewSheet(h,'Casting'); };
+FH.onProjectChange(()=>location.reload());
+</script></body></html>

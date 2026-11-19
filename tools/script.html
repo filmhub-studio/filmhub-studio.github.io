@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Script Development</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"><link rel="stylesheet" href="common.css">
+<style>
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.stagebar{display:flex;justify-content:center;padding:12px;border-bottom:1px solid var(--border);background:var(--surface)}
+.view{flex:1;min-height:0;overflow:auto}
+/* develop */
+.dev{display:grid;grid-template-columns:200px 1fr;gap:24px;max-width:1100px;margin:0 auto;padding:22px}
+.toc{position:sticky;top:0;align-self:start;padding-top:6px}
+.toc a{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;cursor:pointer}
+.toc a:hover{background:var(--surface2);color:var(--text)}.toc a.on{color:var(--accent);background:var(--glow)}
+.toc a i{width:7px;height:7px;border-radius:50%;background:var(--border2)}.toc a.filled i{background:var(--green)}
+.sec{scroll-margin-top:12px}
+.sec .num{font:700 13px var(--mono);color:var(--accent);margin-right:8px}
+.sec h3{font-size:21px;display:flex;align-items:baseline}
+.sec>.hint{margin:2px 0 14px}
+.formula{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.formula label{font:600 9.5px var(--mono);letter-spacing:.08em;color:var(--accent);text-transform:uppercase;display:block;margin-bottom:4px}
+.preview{border-left:3px solid var(--accent);padding:10px 14px;background:var(--bg);border-radius:0 10px 10px 0;font-size:14.5px;margin-top:10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ccard{background:var(--bg);border:1px solid var(--border2);border-radius:14px;padding:14px}
+.ccard.prot{border-color:var(--accent)}
+.addcard{border:1.5px dashed var(--border2);border-radius:14px;display:grid;place-items:center;min-height:160px;color:var(--accent);cursor:pointer;font-weight:600}
+.addcard:hover{border-color:var(--accent);background:var(--glow)}
+.tagset{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.tagset span{font:500 10.5px var(--sans);padding:3px 8px;border-radius:10px;border:1px solid var(--border2);color:var(--muted);cursor:pointer}.tagset span.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+/* outline */
+.out{max-width:1000px;margin:0 auto;padding:22px}
+.beat{display:grid;grid-template-columns:150px 1fr;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+.beat b{font:700 15px var(--display)}.beat .pos{font:10.5px var(--mono);color:var(--muted)}
+.beat textarea{min-height:64px}
+.track{position:relative;height:34px;background:var(--surface2);border-radius:8px;margin:14px 0 22px}
+.track span{position:absolute;top:6px;transform:translateX(-50%);width:10px;height:22px;border-radius:4px;background:var(--border2)}.track span.f{background:var(--accent)}
+/* write */
+.ws{display:grid;grid-template-columns:240px 1fr 1fr;height:100%}
+@media(max-width:1100px){.ws{grid-template-columns:1fr 1fr}.ws .side{display:none}}
+.ws .side{border-right:1px solid var(--border);overflow:auto;padding:14px;background:var(--surface)}
+.ws .side .item{padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12px;display:flex;gap:6px}.ws .side .item:hover{background:var(--surface2)}.ws .side .item i{font:10px var(--mono);color:var(--muted);font-style:normal;min-width:20px}
+.ed{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--border)}
+.ed .bar{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--surface)}
+#src{flex:1;border:none;border-radius:0;resize:none;font:14px/1.6 'Courier Prime',Courier,monospace;padding:18px 22px;background:var(--bg);box-shadow:none}
+.pv{overflow:auto;background:var(--surface3);padding:24px}
+.page{background:#fff;color:#111;width:8.5in;max-width:100%;margin:0 auto 18px;padding:1in 1in 1in 1.5in;font:12pt/1.0 'Courier Prime',Courier,monospace;min-height:11in;box-shadow:0 6px 24px rgba(0,0,0,.35);position:relative}
+.page .pn{position:absolute;top:.5in;right:1in}.page p{margin:0 0 12pt;white-space:pre-wrap}
+.page .sh{font-weight:700;text-transform:uppercase;margin-top:12pt}.page .ch{margin:0 0 0 2.2in;text-transform:uppercase}.page .pa{margin:0 0 0 1.6in}.page .di{margin:0 1.5in 12pt 1in}.page .tr{text-align:right;text-transform:uppercase}.page .ce{text-align:center}.page .note{color:#2a6;font-style:italic}
+.tp{text-align:center;padding-top:3in}.tp h1{font:700 14pt 'Courier Prime',monospace;text-transform:uppercase;text-decoration:underline;margin-bottom:24pt}
+@media print{body{height:auto;overflow:visible;display:block}.stagebar,.fh-top,.ws .side,.ed,.dev,.out{display:none!important}.view{overflow:visible}.ws{display:block}.pv{background:#fff;padding:0;overflow:visible}.page{box-shadow:none;margin:0;page-break-after:always}}
+</style></head><body>
+<div class="stagebar"><div class="seg" id="stages"><button data-s="develop"><span class="n">1</span>Develop</button><button data-s="outline"><span class="n">2</span>Outline</button><button data-s="write"><span class="n">3</span>Write</button></div></div>
+<div class="view" id="view"></div>
+<script src="common.js"></script><script src="structures.js"></script>
+<script>
+FH.header({kicker:'01 · Develop', name:'Script Development', actions:'<button class="btn" id="b-draft">Save draft</button><button class="btn" id="b-dl">.fountain</button><label class="btn">Open<input type="file" id="f" accept=".fountain,.txt,.md" hidden></label><button class="btn accent" id="b-print">Print / PDF</button>',
+ help:'<p><b>1 · Develop:</b> the idea, logline, theme (the Lie and the Truth), characters, settings and references. <b>2 · Outline:</b> place your story on a structure, beat by beat. <b>3 · Write:</b> screenplay format in Fountain, with your outline beside you.</p><p>Everything saves automatically. In a shared ☁ project your co-writers see changes live.</p>'});
+const e=FH.esc, $=id=>document.getElementById(id);
+let D=FH.load('script', ()=>({}));
+D=Object.assign({stage:'develop', idea:{}, logline:{}, theme:{}, characters:[], settings:[], refs:[], notes:'', outline:{fw:'scaffold', beats:{}}, text:'', drafts:[], welcome:true}, D);
+if(D.bible){ D.idea.idea=D.idea.idea||D.bible.logline; D.notes=D.notes||[D.bible.theme,D.bible.characters,D.bible.settings,D.bible.beats].filter(Boolean).join('\n\n'); delete D.bible; }
+function save(){ FH.save('script', D); }
+function stage(s){ D.stage=s; save(); document.querySelectorAll('[data-s]').forEach(b=>b.classList.toggle('on',b.dataset.s===s)); ({develop,outline,write})[s](); }
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>stage(b.dataset.s));
+const bind=(root)=>root.querySelectorAll('[data-p]').forEach(i=>{ const path=i.dataset.p.split('.'); let o=D; for(let k=0;k<path.length-1;k++) o=o[path[k]]; i.value=o[path[path.length-1]]??''; i.oninput=()=>{ o[path[path.length-1]]=i.value; save(); if(i.dataset.p.startsWith('logline')) logPrev(); toc(); }; });
+const SECS=[['idea','The Idea'],['logline','Logline'],['theme','Theme'],['characters','Characters'],['settings','Settings'],['refs','References'],['notes','Notes']];
+function filled(k){ const v=D[k]; return Array.isArray(v)?v.length>0:typeof v==='string'?!!v.trim():Object.values(v||{}).some(x=>String(x||'').trim()); }
+function toc(){ document.querySelectorAll('.toc a').forEach(a=>a.classList.toggle('filled',filled(a.dataset.k))); }
+function develop(){
+  $('view').innerHTML=`<div class="dev"><nav class="toc">${SECS.map(([k,n])=>`<a data-k="${k}"><i></i>${n}</a>`).join('')}<p class="hint" style="margin-top:14px;padding:0 10px">Work top to bottom, or jump around. Everything here feeds the Outline and Write tabs.</p></nav><div>
+  ${D.welcome?`<div class="welcome"><button class="ib x" id="wx">✕</button><span class="label">Welcome</span><h3>From first idea to finished script</h3><p class="hint">Work through three stages. Anything you write in one tab is carried into the others, so your Lie and Truth, characters and outline follow you all the way to the page.</p><div class="steps3"><div><b>1 · Develop</b><span class="hint">The idea, logline, theme, characters, settings and references.</span></div><div><b>2 · Outline</b><span class="hint">Build your structure beat by beat, from the character’s arc.</span></div><div><b>3 · Write</b><span class="hint">Proper screenplay format with your outline beside the page.</span></div></div></div>`:''}
+  <div class="card sec" id="s-idea"><h3><span class="num">1</span>The Idea</h3><p class="hint">Get the idea down however it comes. You'll refine it as you go.</p>
+    <div class="row3"><div class="field"><label>Working title</label><input type="text" data-p="idea.title" placeholder="e.g. The Lighthouse Keeper"></div><div class="field"><label>Writer</label><input type="text" data-p="idea.writer" placeholder="Your name"></div><div class="field"><label>Genre / tone</label><input type="text" data-p="idea.genre" placeholder="Drama, dark comedy…"></div></div>
+    <div class="row2"><div class="field"><label>Target length (pages) <em>≈ 1 page = 1 min</em></label><input type="number" data-p="idea.length" placeholder="e.g. 8"></div><div class="field"><label>Contact (for the title page)</label><input type="text" data-p="idea.contact" placeholder="Email / phone"></div></div>
+    <div class="field"><label>The idea</label><textarea data-p="idea.idea" placeholder="What if…? Who is it about, what happens, why does it matter to you?"></textarea></div></div>
+  <div class="card sec" id="s-logline"><h3><span class="num">2</span>Logline</h3><p class="hint">Sum up the plot in a sentence. Use the formula, then polish it in your own words.</p>
+    <p class="hint" style="margin-bottom:8px"><b>Formula:</b> When <i>inciting incident</i>, a <i>specific protagonist</i> must <i>objective</i>, or else <i>stakes</i>.<br><b>Example (Finding Nemo):</b> When a young clownfish is captured by a diver, his anxious father must face the perilous ocean to find his son before he is lost forever.</p>
+    <div class="formula"><div><label>When… (inciting incident)</label><input type="text" data-p="logline.when" placeholder="a young clownfish is captured"></div><div><label>A… (specific protagonist)</label><input type="text" data-p="logline.who" placeholder="his anxious father"></div><div><label>Must… (objective)</label><input type="text" data-p="logline.must" placeholder="cross the ocean to find him"></div><div><label>Or else… (stakes)</label><input type="text" data-p="logline.orelse" placeholder="he is lost forever"></div></div>
+    <div class="preview" id="lp"></div><div style="text-align:right;margin-top:6px"><button class="btn sm" id="useit">Use this ↓</button></div>
+    <div class="field"><label>Your logline</label><textarea data-p="logline.text" style="min-height:60px"></textarea></div></div>
+  <div class="card sec" id="s-theme"><h3><span class="num">3</span>Theme</h3><p class="hint">What is the story really about? Your protagonist starts believing a <b>Lie</b> and, by the end, faces the <b>Truth</b>.</p>
+    <div class="row2"><div class="field"><label>The Lie they believe</label><textarea data-p="theme.lie" placeholder="e.g. If I keep everyone safe, nothing bad can happen."></textarea></div><div class="field"><label>The Truth they learn</label><textarea data-p="theme.truth" placeholder="e.g. Love means letting go."></textarea></div></div>
+    <div class="field"><label>Theme in one line</label><input type="text" data-p="theme.line" placeholder="Fear can’t protect the people we love."></div></div>
+  <div class="card sec" id="s-characters"><h3><span class="num">4</span>Characters</h3><p class="hint">Start with your protagonist. Supporting characters can have arcs of their own too.</p><div class="cards" id="chars"></div></div>
+  <div class="card sec" id="s-settings"><h3><span class="num">5</span>Settings</h3><p class="hint">Where does your story happen? Your opening setting is the norm in which the Lie has been able to fester.</p><div class="cards" id="sets"></div></div>
+  <div class="card sec" id="s-refs"><h3><span class="num">6</span>References</h3><p class="hint">Films (shorts especially) that inspire what you're making, and exactly what you're taking from them.</p><div class="cards" id="refs"></div></div>
+  <div class="card sec" id="s-notes"><h3><span class="num">7</span>Notes</h3><p class="hint">Research, images you have in mind, overheard dialogue: anything else.</p><textarea data-p="notes" style="min-height:160px"></textarea></div>
+  </div></div>`;
+  bind($('view')); logPrev(); toc(); cards();
+  const wx=$('wx'); if(wx) wx.onclick=()=>{ D.welcome=false; save(); develop(); };
+  $('useit').onclick=()=>{ D.logline.text=$('lp').textContent; save(); develop(); document.getElementById('s-logline').scrollIntoView(); };
+  document.querySelectorAll('.toc a').forEach(a=>a.onclick=()=>{ document.getElementById('s-'+a.dataset.k).scrollIntoView({behavior:'smooth'}); document.querySelectorAll('.toc a').forEach(x=>x.classList.toggle('on',x===a)); });
+}
+function logPrev(){ const l=D.logline, el=$('lp'); if(!el) return; el.textContent=`When ${l.when||'…'}, ${l.who?'a '+l.who.replace(/^an? /i,''):'a …'} must ${l.must||'…'}, or else ${l.orelse||'…'}.`; }
+const REFTAGS=['Tone','Structure','Character','Visual style','Theme','Dialogue','Sound'];
+function cards(){
+  const C=$('chars'); C.innerHTML=D.characters.map((c,i)=>`<div class="ccard ${c.role==='Protagonist'?'prot':''}"><div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" data-c="${i}" data-f="name" value="${e(c.name||'')}" placeholder="${i?'Name':'Protagonist’s name'}" style="font-weight:600"><select data-c="${i}" data-f="role" style="width:auto">${['Protagonist','Antagonist','Love interest','Mentor','Ally','Supporting'].map(r=>`<option ${r===c.role?'selected':''}>${r}</option>`).join('')}</select><button class="ib del" data-cd="${i}">✕</button></div>
+    ${[['desc','Description','Age, look, job, how they carry themselves'],['want','Want','What they’re trying to get'],['need','Need','What they actually need (the Truth)'],['flaw','Flaw','Their defining negative trait'],['history','History','What made them believe the Lie?'],['arc','Arc','How do they change by the end?']].map(([k,l,p])=>`<div class="field"><label>${l}</label><textarea data-c="${i}" data-f="${k}" placeholder="${p}" style="min-height:44px">${e(c[k]||'')}</textarea></div>`).join('')}</div>`).join('')+`<div class="addcard" id="addc">＋ Add a character</div>`;
+  const S=$('sets'); S.innerHTML=D.settings.map((s,i)=>`<div class="ccard"><div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" data-s2="${i}" data-f="name" value="${e(s.name||'')}" placeholder="e.g. INT. KITCHEN" style="font-weight:600"><button class="ib del" data-sd="${i}">✕</button></div><div class="field"><label>What it looks / feels like</label><textarea data-s2="${i}" data-f="desc" style="min-height:44px">${e(s.desc||'')}</textarea></div><div class="field"><label>What it says about the story</label><textarea data-s2="${i}" data-f="meaning" style="min-height:44px">${e(s.meaning||'')}</textarea></div><div class="field"><label>Real location idea</label><input type="text" data-s2="${i}" data-f="loc" value="${e(s.loc||'')}"></div></div>`).join('')+`<div class="addcard" id="adds">＋ Add a setting</div>`;
+  const R=$('refs'); R.innerHTML=D.refs.map((r,i)=>`<div class="ccard"><div style="display:flex;gap:6px;margin-bottom:6px"><input type="text" data-r="${i}" data-f="title" value="${e(r.title||'')}" placeholder="Film title" style="font-weight:600"><input type="text" data-r="${i}" data-f="year" value="${e(r.year||'')}" placeholder="Year" style="width:70px"><button class="ib del" data-rd="${i}">✕</button></div><div class="tagset">${REFTAGS.map(t=>`<span data-rt="${i}" data-t="${t}" class="${(r.tags||[]).includes(t)?'on':''}">${t}</span>`).join('')}</div><div class="field"><label>What I'm taking from it</label><textarea data-r="${i}" data-f="taking" placeholder="Be specific: a shot, a structure, the way it handles…" style="min-height:52px">${e(r.taking||'')}</textarea></div><input type="url" data-r="${i}" data-f="link" value="${e(r.link||'')}" placeholder="Link (Vimeo, YouTube, Letterboxd…)"></div>`).join('')+`<div class="addcard" id="addr">＋ Add a reference film</div>`;
+  const on=(sel,arr)=>document.querySelectorAll(sel).forEach(i=>{ const idx=+Object.values(i.dataset)[0]; i.oninput=i.onchange=()=>{ arr[idx][i.dataset.f]=i.value; save(); toc(); if(i.dataset.f==='role') cards(); }; });
+  on('[data-c]',D.characters); on('[data-s2]',D.settings); on('[data-r]',D.refs);
+  $('addc').onclick=()=>{ D.characters.push({role:D.characters.length?'Supporting':'Protagonist'}); save(); cards(); toc(); };
+  $('adds').onclick=()=>{ D.settings.push({}); save(); cards(); toc(); }; $('addr').onclick=()=>{ D.refs.push({tags:[]}); save(); cards(); toc(); };
+  document.querySelectorAll('[data-cd]').forEach(b=>b.onclick=()=>{ D.characters.splice(+b.dataset.cd,1); save(); cards(); });
+  document.querySelectorAll('[data-sd]').forEach(b=>b.onclick=()=>{ D.settings.splice(+b.dataset.sd,1); save(); cards(); });
+  document.querySelectorAll('[data-rd]').forEach(b=>b.onclick=()=>{ D.refs.splice(+b.dataset.rd,1); save(); cards(); });
+  document.querySelectorAll('[data-rt]').forEach(s=>s.onclick=()=>{ const r=D.refs[+s.dataset.rt]; r.tags=r.tags||[]; r.tags.includes(s.dataset.t)?r.tags=r.tags.filter(t=>t!==s.dataset.t):r.tags.push(s.dataset.t); save(); cards(); });
+}
+function outline(){ const fw=STRUCTURES[D.outline.fw]||STRUCTURES.scaffold, pages=+D.idea.length||10;
+  $('view').innerHTML=`<div class="out"><div class="card"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div><span class="label">Structure</span><div class="seg" id="fw">${Object.entries(STRUCTURES).map(([k,s])=>`<button data-fw="${k}" class="${k===D.outline.fw?'on':''}">${s.short}</button>`).join('')}</div></div><span class="spacer"></span><div class="hint" style="max-width:360px">${fw.note} Page targets use your target length (${pages} pages) from The Idea.</div></div>
+    <div class="track">${fw.beats.map(b=>`<span class="${(D.outline.beats[D.outline.fw+':'+b[0]]||'').trim()?'f':''}" style="left:${(b[2]+b[3])/2*100}%" title="${e(b[1])}"></span>`).join('')}</div>
+    ${D.theme.lie||D.theme.truth?`<div class="readout" style="margin-bottom:8px">Lie: <b>${e(D.theme.lie||'—')}</b><br>Truth: <b>${e(D.theme.truth||'—')}</b>${D.logline.text?'<br>Logline: '+e(D.logline.text):''}</div>`:''}
+    ${fw.beats.map(b=>{ const k=D.outline.fw+':'+b[0], p1=Math.max(1,Math.round(b[2]*pages)), p2=Math.max(1,Math.round(b[3]*pages)); return `<div class="beat"><div><b>${e(b[1])}</b><div class="pos">p. ${p1}${p2!==p1?'–'+p2:''} · ${Math.round(b[2]*100)}%</div></div><div><p class="hint" style="margin-bottom:6px">${e(b[4])}</p><textarea data-b="${k}" placeholder="What happens here in your story?">${e(D.outline.beats[k]||'')}</textarea></div></div>`; }).join('')}
+    <div style="display:flex;gap:8px;margin-top:16px"><button class="btn" id="tofount">Add outline to the script as sections</button><span class="spacer"></span><button class="btn accent" id="gowrite">Start writing →</button></div></div></div>`;
+  document.querySelectorAll('[data-fw]').forEach(b=>b.onclick=()=>{ D.outline.fw=b.dataset.fw; save(); outline(); });
+  document.querySelectorAll('[data-b]').forEach(t=>t.oninput=()=>{ D.outline.beats[t.dataset.b]=t.value; save(); });
+  $('gowrite').onclick=()=>stage('write');
+  $('tofount').onclick=()=>{ const lines=fw.beats.filter(b=>(D.outline.beats[D.outline.fw+':'+b[0]]||'').trim()).map(b=>`# ${b[1]}\n= ${D.outline.beats[D.outline.fw+':'+b[0]].replace(/\n/g,' ')}\n`); if(!lines.length){ FH.toast('Write some beats first.'); return; } D.text=(D.text?D.text+'\n\n':'')+lines.join('\n'); save(); stage('write'); FH.toast('Outline added as sections (they don’t print).'); };
+}
+/* ---------- write (Fountain) ---------- */
+function parse(t){ const lines=t.replace(/\r/g,'').split('\n'), out=[], title={}; let i=0;
+  if(/^\s*(title|credit|author|authors|source|draft date|contact)\s*:/i.test(lines[0]||'')){ let k=null; while(i<lines.length && lines[i].trim()!==''){ const m=lines[i].match(/^\s*([^:]+):\s*(.*)$/); if(m){ k=m[1].toLowerCase(); title[k]=m[2]; } else if(k) title[k]+=(title[k]?'\n':'')+lines[i].trim(); i++; } }
+  let inBone=false;
+  for(;i<lines.length;i++){ const l=lines[i], tr=l.trim(), prev=(lines[i-1]||'').trim(), next=(lines[i+1]||'').trim();
+    if(inBone){ if(tr.includes('*/')) inBone=false; continue; } if(tr.startsWith('/*')){ if(!tr.includes('*/')) inBone=true; continue; }
+    if(!tr){ out.push({t:'blank'}); continue; }
+    if(/^#/.test(tr)){ out.push({t:'section', x:tr.replace(/^#+\s*/,'')}); continue; }
+    if(/^=(?!=)/.test(tr)){ out.push({t:'synopsis', x:tr.slice(1).trim()}); continue; }
+    if(/^\[\[.*\]\]$/.test(tr)){ out.push({t:'note', x:tr.slice(2,-2)}); continue; }
+    if(/^>.*<$/.test(tr)){ out.push({t:'center', x:tr.slice(1,-1).trim()}); continue; }
+    if((/^(INT|EXT|EST|INT\.?\/EXT|I\/E)[\.\s]/i.test(tr) && !prev) || /^\.[A-Za-z0-9]/.test(tr)){ out.push({t:'scene', x:tr.replace(/^\./,'')}); continue; }
+    if((/^[A-Z0-9 \.\-']+TO:$/.test(tr) && !prev) || /^>/.test(tr)){ out.push({t:'trans', x:tr.replace(/^>\s*/,'')}); continue; }
+    if(!prev && next && (/^@/.test(tr) || (/^[^a-z]*[A-Z][^a-z]*$/.test(tr.replace(/\(.*\)$/,'')) && !/^[!]/.test(tr)))){ out.push({t:'char', x:tr.replace(/^@/,'')}); i++;
+      for(;i<lines.length && lines[i].trim();i++){ const d=lines[i].trim(); out.push(/^\(.*\)$/.test(d)?{t:'paren',x:d}:{t:'dial',x:d}); } i--; continue; }
+    out.push({t:'action', x:l.replace(/^!/,'')}); }
+  return {title, els:out}; }
+function inline(s){ return e(s).replace(/\*\*\*(.+?)\*\*\*/g,'<b><i>$1</i></b>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>').replace(/_(.+?)_/g,'<u>$1</u>').replace(/\[\[(.+?)\]\]/g,'<span class="note">[$1]</span>'); }
+function pages(els){ const P=[]; let cur=[], lines=0; const cost=el=>el.t==='dial'?Math.ceil(el.x.length/35):el.t==='action'?Math.ceil(el.x.length/60)+1:el.t==='scene'?2:1;
+  els.forEach(el=>{ if(['blank','section','synopsis'].includes(el.t)) return; const c=cost(el); if(lines+c>54 && cur.length && !['dial','paren'].includes(el.t)){ P.push(cur); cur=[]; lines=0; } cur.push(el); lines+=c; }); if(cur.length) P.push(cur); return P; }
+function html(el){ return {scene:`<p class="sh">${inline(el.x)}</p>`, char:`<p class="ch" style="margin-bottom:0">${inline(el.x)}</p>`, paren:`<p class="pa" style="margin-bottom:0">${inline(el.x)}</p>`, dial:`<p class="di" style="margin-top:0">${inline(el.x)}</p>`, trans:`<p class="tr">${inline(el.x)}</p>`, center:`<p class="ce">${inline(el.x)}</p>`, note:`<p class="note">[${inline(el.x)}]</p>`}[el.t]||`<p>${inline(el.x)}</p>`; }
+let parsed={title:{},els:[]}, wtab='scenes';
+function write(){
+  $('view').innerHTML=`<div class="ws"><aside class="side"><div class="chips" style="margin-bottom:12px">${[['scenes','Scenes'],['outline','Outline'],['drafts','Drafts']].map(([k,n])=>`<span class="chip ${k===wtab?'on':''}" data-w="${k}">${n}</span>`).join('')}</div><div id="side"></div></aside>
+    <div class="ed"><div class="bar"><button class="btn sm" data-ins="scene">Scene</button><button class="btn sm" data-ins="action">Action</button><button class="btn sm" data-ins="char">Character</button><button class="btn sm" data-ins="paren">(paren)</button><button class="btn sm" data-ins="trans">Transition</button><button class="btn sm" data-ins="note">[[note]]</button><button class="btn sm ghost" id="b-help2">Fountain help</button><span class="spacer"></span><span class="pill" id="stats"></span></div>
+    <textarea id="src" spellcheck="true" placeholder="Title: ${e(D.idea.title||'My Film')}&#10;Author: ${e(D.idea.writer||'')}&#10;&#10;INT. KITCHEN - NIGHT&#10;&#10;A kettle clicks off. ANNA (30s) stares at it.&#10;&#10;ANNA&#10;(quietly)&#10;Not tonight."></textarea></div><div class="pv" id="pv"></div></div>`;
+  const src=$('src'); src.value=D.text||''; if(!src.value && D.idea.title) src.value=`Title: ${D.idea.title}\nCredit: written by\nAuthor: ${D.idea.writer||''}\nContact: ${D.idea.contact||''}\n\n`;
+  let tm; src.oninput=()=>{ D.text=src.value; save(); clearTimeout(tm); tm=setTimeout(render,250); };
+  const INS={scene:'\n\nINT. LOCATION - DAY\n\n', action:'\n\n', char:'\n\nNAME\n', paren:'\n(beat)\n', trans:'\n\nCUT TO:\n\n', note:' [[note]] '};
+  document.querySelectorAll('[data-ins]').forEach(b=>b.onclick=()=>{ const s=src.selectionStart, v=src.value, t=INS[b.dataset.ins]; src.value=v.slice(0,s)+t+v.slice(src.selectionEnd); src.focus(); const sel=b.dataset.ins==='scene'?[s+2,s+t.length-2]:b.dataset.ins==='char'?[s+2,s+6]:[s+t.length,s+t.length]; src.setSelectionRange(...sel); D.text=src.value; save(); render(); });
+  document.querySelectorAll('[data-w]').forEach(c=>c.onclick=()=>{ wtab=c.dataset.w; write(); });
+  $('b-help2').onclick=fountainHelp; render(); }
+function render(){ const src=$('src'); if(!src) return; parsed=parse(src.value); const P=pages(parsed.els), t=parsed.title;
+  $('pv').innerHTML=(t.title?`<div class="page tp"><h1>${inline(t.title)}</h1><p>${e(t.credit||'written by')}</p><p>${e(t.author||t.authors||'')}</p>${t.contact?`<p style="position:absolute;left:1.5in;bottom:1in;text-align:left">${e(t.contact).replace(/\n/g,'<br>')}</p>`:''}</div>`:'')+P.map((pg,i)=>`<div class="page">${i?`<span class="pn">${i+1}.</span>`:''}${pg.map(html).join('')}</div>`).join('')||'<div class="page"><p style="color:#999">Start typing on the left. Scene headings start with INT. or EXT.; a character name in CAPITALS on its own line is followed by their dialogue.</p></div>';
+  const sc=parsed.els.filter(x=>x.t==='scene'), chars={}; parsed.els.filter(x=>x.t==='char').forEach(c=>{ const n=c.x.replace(/\s*\(.*\)$/,'').replace(/\^$/,'').trim(); chars[n]=(chars[n]||0)+1; });
+  const tgt=+D.idea.length; $('stats').textContent=`${P.length}${tgt?' / '+tgt:''} pages · ${sc.length} scenes · ${Object.keys(chars).length} characters`;
+  const el=$('side'); const fw=STRUCTURES[D.outline.fw]||STRUCTURES.scaffold;
+  if(wtab==='scenes'){ el.innerHTML=`<div class="label">Scenes</div>${sc.map((s,i)=>`<div class="item" data-sc="${i}"><i>${i+1}</i>${e(s.x)}</div>`).join('')||'<p class="hint">No scene headings yet.</p>'}<div class="label" style="margin-top:16px">Characters</div>${Object.entries(chars).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<div class="item"><i>${c}</i>${e(n)}</div>`).join('')||'<p class="hint">—</p>'}`;
+    el.querySelectorAll('[data-sc]').forEach(x=>x.onclick=()=>{ const n=+x.dataset.sc, lines=src.value.split('\n'); let k=0,pos=0; for(let j=0;j<lines.length;j++){ const t=lines[j].trim(); if((/^(INT|EXT|EST|INT\.?\/EXT|I\/E)[\.\s]/i.test(t)&&!(lines[j-1]||'').trim())||/^\.[A-Za-z0-9]/.test(t)){ if(k===n){ src.focus(); src.setSelectionRange(pos,pos+lines[j].length); src.scrollTop=Math.max(0,(j-3)*22.4); return; } k++; } pos+=lines[j].length+1; } }); }
+  else if(wtab==='outline'){ el.innerHTML=`<div class="label">${fw.name}</div>${D.logline.text?`<p class="hint" style="margin-bottom:10px"><b>Logline:</b> ${e(D.logline.text)}</p>`:''}${fw.beats.map(b=>{ const v=D.outline.beats[D.outline.fw+':'+b[0]]; return `<div style="margin-bottom:10px"><b style="font-size:12px">${e(b[1])}</b><p class="hint">${v?e(v):'<i>—</i>'}</p></div>`; }).join('')}`; }
+  else { el.innerHTML=`<div class="label">Saved drafts</div>${D.drafts.map((d,i)=>`<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:6px"><b style="font-size:12.5px">${e(d.name)}</b><div class="hint">${new Date(d.at).toLocaleString()}</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btn sm" data-ld="${i}">Open</button><button class="btn sm ghost danger" data-dd="${i}">Delete</button></div></div>`).join('')||'<p class="hint">Save a draft before big rewrites so you can go back.</p>'}`;
+    el.querySelectorAll('[data-ld]').forEach(b=>b.onclick=()=>FH.confirm('Open this draft?','Your current text is replaced. Save a draft of it first if you want to keep it.','Open draft',()=>{ D.text=D.drafts[+b.dataset.ld].text; save(); write(); }));
+    el.querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{ D.drafts.splice(+b.dataset.dd,1); save(); render(); }); } }
+function fountainHelp(){ FH.modal(`<h3>Writing in Fountain</h3><p>Plain text that formats itself.</p><div class="readout" style="white-space:pre-wrap">INT. KITCHEN - NIGHT        ← scene heading (blank line before)
+.FLASHBACK                   ← force a scene heading with a dot
+
+Anna fills the kettle.       ← action
+
+ANNA                         ← character (CAPITALS, blank line before)
+(quietly)                    ← parenthetical
+Not tonight.                 ← dialogue
+
+CUT TO:                      ← transition (ends in TO:)
+>THE END<                    ← centred
+[[fix this later]]           ← note
+# ACT ONE / = synopsis       ← outline only, not printed
+**bold** *italic* _underline_</div><div class="acts"><button class="btn accent" onclick="FH.close()">Got it</button></div>`,true); }
+$('b-draft').onclick=()=>FH.prompt('Save draft','Draft name','Draft '+(D.drafts.length+1)+' · '+new Date().toLocaleDateString(),n=>{ D.drafts.unshift({name:n||'Draft', at:Date.now(), text:D.text||''}); save(); FH.toast('Draft saved.'); if(D.stage==='write'){ wtab='drafts'; write(); } });
+$('b-dl').onclick=()=>FH.download(((D.idea.title||FH.currentProject().name)+'.fountain').replace(/[^\w\-. ]+/g,'').replace(/\s+/g,'-'), D.text||'');
+$('f').onchange=async ev=>{ const f=ev.target.files[0]; ev.target.value=''; if(!f) return; const t=await f.text(); FH.confirm('Open '+f.name+'?','It replaces the script text. Save a draft first to keep the current version.','Open',()=>{ D.text=t; save(); stage('write'); }); };
+$('b-print').onclick=()=>{ if(D.stage!=='write') stage('write'); setTimeout(()=>{ try{ window.print(); }catch(err){ FH.toast('Printing is blocked here. Open the hub on your own site to print.'); } },300); };
+stage(D.stage||'develop');
+</script></body></html>
